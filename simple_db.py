@@ -3,7 +3,7 @@ from pathlib import Path
 from uuid import uuid4
 import random
 
-DB_PATH = Path(os.getcwd()) / 'my_db.txt'
+DB_PATH = Path(os.getcwd()) / 'simple_db.txt'
 
 
 def insert_into_db(key: str, value: int) -> None:
