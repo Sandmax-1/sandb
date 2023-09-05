@@ -13,17 +13,17 @@ class IndexValue(NamedTuple):
 
 class LSMTree:
     def __init__(self, memtable_max_size: int = 1000):
-        self.memtable = RedBlackTree()
+        self.memtable: RedBlackTree = RedBlackTree()
         self.memtable_max_size = memtable_max_size
 
-        self.index = RedBlackTree()
+        self.index: RedBlackTree = RedBlackTree()
         self.segment_chunk_size_for_indexing = 100
 
         self.segment_index = 0
 
         self.segment_folder_path = ROOT_DIR / "lsm_segments"
         self.segment_folder_path.mkdir(exist_ok=True)
-
+    
     def insert_into_db(self, key: str, value: int) -> None:
         self.memtable.add(key, value)
         if sys.getsizeof(self.memtable) > self.memtable_max_size:
@@ -52,6 +52,35 @@ class LSMTree:
                 index_counter -= 1
 
         self.segment_index += 1
+        
+    def get_floor_ceil_of_key_in_index(self, inputted_key: str):
+        """
+        Not very performant algorithm for looping through our red black tree index
+        to find the boundary where the key to search for is. 
+        
+        I.e. if our tree looks something like:
+        {a: 100
+        h: 200
+        q: 300
+        z: 400}
+        then the boundaries if we try and find key j would be a and h. 
+        """     
+        floor = None
+        ceil = None
+        prev_value = None 
+        for key, value in self.index.items():
+            if key == inputted_key:
+                return (value, value)
+            elif inputted_key < key:
+                floor, ceil = prev_value, value
+                break
+            prev_value = value
+            
+        if ceil is floor is None:
+            floor, ceil = value, None
+        
+        return floor, ceil 
+            
 
 
 countries_dict = {
