@@ -75,7 +75,7 @@ class LSMTree:
         return value
 
     def insert_into_db(self, key: str, value: int) -> None:
-        if len(self.memtable) > self.memtable_max_size:
+        if len(self.memtable) >= self.memtable_max_size:
             self.flush_memtable_to_disk()
         self.memtable.add(key, value)
 
