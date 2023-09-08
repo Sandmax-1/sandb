@@ -35,3 +35,46 @@ Downsides:
 - Range queries are not efficient as you have to look up key individually in the hash maps. 
 
 
+How can we solve these downsides? 
+
+In the hash indexing example we just write to file with every new request. We can make a simple change to the way we store our data. 
+
+If instead we assert that our segment files must be sorted by key. We call this format a sorted string table, or SStable for short. In this format we cannot append new key-value pers to the segment files immediately as they can come in any order. We will see shortly how we overcome this. 
+
+SStables have some big advantages over log segments with hash indexes. 
+
+- Merging SSTables is simple and efficient, even if our segments are bigger than the available memory. We essentially use a mergesort algorithm illustrated below
+    - if key appears in multiple segments take the latest segment as segments are written sequentially.
+
+![Alt text](image-1.png)
+
+- In order to find a particular key in the file we no longer need to keep an index of all keys in memory. Say you are looking for a specific key, then as long as you know some bounding keys you can search in between as the log is ordered by key. 
+
+![Alt text](image.png)
+
+- You still need an in memory index to tell you the offsets of some keys, but this can be very sparse: one key for every few kilobytes of segment file is sufficient.
+
+- We can even compress the block of memory in between our sparse keys as we will always have to scan the whole block. 
+
+Constructing and maintaining SSTables:
+
+This is all well and good , but how do we get our data sorted by key in the first place? As writes can come in in any order. 
+
+We will maintain an inmemory soreted data structure. There are lots of well known tree data structures that you can use such as red-black, or AVL trees. 
+
+We can now make our storage engine function like this: 
+- When a write comes in add it to the in memory balanced tree structure. We will call this structure a memtable. 
+- When the memtable reaches a certain size (typically a fef MB) we write out to disk. This is efficient as the tree already maintains a sorted order. While we are writing to disk a new memtable is created and any writes will get stored in the new memtable
+- In order to perform a read. First check the in memory memtable then if it is not stored in there look at each segment on disk from newest to oldest. 
+- From time to perform merging and compaction to combine segment files and discard deleted or overwritten values.
+
+- One problem that this storage scheme uffers from is if the db crashes we lose the latest memtable. This can be mitigated by implementing a write ahead log. I.e. every time a new key comes in we first append to a seperate log which is unordered then write to the memtable. It doesn't matter that this log is unordered as it's only purpose is to restore the memtable in the event of a db crash. Delete the corresponding log every time we write a memtable to a segment file. 
+
+
+This scheme is called an LSM tree and is used by many different dbs namely LevelDB, RocksDB, Cassandra and HBase. 
+
+Optimisations:
+- One thing you may notice is that if we attempt to read from the db, but the record does not exist in any of the segments we have to check the memtable and then all the segments back to the oldest segment before we can be sure that a key does not exist in the db. A solution to this problem is to use a data structure called a bloom filter. This is similar to a hash table, but does not store the actual values in the rather it will store whether the key is in the set or not. Bloom filters assure no false negatives and can be tweaked to have a very low false posutive rate. Looking at the bloom filter will tel us whether the key is in the db or not thus saving unecessary disk reads. 
+
+- Talk about compaction and levelled/size-tiered.
+
