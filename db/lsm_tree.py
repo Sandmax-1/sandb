@@ -8,12 +8,6 @@ from collections import OrderedDict
 
 from db.config import ROOT_DIR
 
-@dataclass()
-class IndexValue():
-    segment_index: int
-    key: str
-    offset: int
-
 
 class LSMTree:
     def __init__(
@@ -132,22 +126,3 @@ class LSMTree:
 
         return floor, ceil
 
-
-countries_dict = {
-    "Germany": "Berlin",
-    "Hungary": "Budapest",
-    "Ireland": "Dublin",
-    "Portugal": "Lisbon",
-    "Cyprus": "Nicosia",
-    "Greenland": "Nuuk",
-    "Iceland": "Reykjavik",
-    "Macedonia": "Skopje",
-    "Bulgaria": "Sofia",
-    "Sweden": "Stockholm",
-}
-a = RedBlackTree()
-
-for key, value in countries_dict.items():
-    a.add(key, value)
-
-print(sys.getsizeof(a))

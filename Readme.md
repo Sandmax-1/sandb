@@ -64,7 +64,7 @@ We will maintain an inmemory soreted data structure. There are lots of well know
 
 We can now make our storage engine function like this: 
 - When a write comes in add it to the in memory balanced tree structure. We will call this structure a memtable. 
-- When the memtable reaches a certain size (typically a fef MB) we write out to disk. This is efficient as the tree already maintains a sorted order. While we are writing to disk a new memtable is created and any writes will get stored in the new memtable
+- When the memtable reaches a certain size (typically a few MB) we write out to disk. This is efficient as the tree already maintains a sorted order. While we are writing to disk a new memtable is created and any writes will get stored in the new memtable
 - In order to perform a read. First check the in memory memtable then if it is not stored in there look at each segment on disk from newest to oldest. 
 - From time to perform merging and compaction to combine segment files and discard deleted or overwritten values.
 
@@ -78,3 +78,16 @@ Optimisations:
 
 - Talk about compaction and levelled/size-tiered.
 
+The log structured indexes discussed so far are gaining traction, but they are not the most common type of index. The most common indeing structure is very different: the B-tree:
+
+B-trees have been around for a long time and are used are the standard index implementation in almost all relational dbs and many nonrelational databases. 
+
+Like LSM trees B-trees keep key-value pairs sorted by by key which allow efficient lookups and range queries. 
+
+However log structured indexes break down the database inoto variable sized segments and always write a segment sequentially. B-trees break the db down into fixed sized segements typically 4KB in size and read or write one page at a time. This designn corrresponds more closely to the underlying hardware as disks are also arranged in fixed sized blocks. 
+
+![Alt text](image-2.png)
+
+- Each page can be identified using an address, or location which allows one page to refer to anohther page (similar to a pointer, but on disk)
+- One page is designated as the root of the tree and any look up starts from here filtering down the pages. WHere each page is responsible for a continuous range of keys.
+- Go through example. 
