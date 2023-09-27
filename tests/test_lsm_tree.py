@@ -202,3 +202,34 @@ def test_write_to_db():
 
         assert os.listdir(tmp) == ["segment_0.txt", "segment_1.txt", "segment_2.txt"]
         assert len(lsmtree.memtable) == 25
+
+
+def test_compact_segment_files():
+    nums_1 = [1, 2, 3, 4, 5]
+    nums_2 = [1, 2, 4, 7, 8]
+    with TemporaryDirectory(dir=ROOT_DIR) as tmp:
+        lsmtree = LSMTree(5, 1)
+        lsmtree.segment_folder_path = Path(tmp)
+        for num in nums_1:
+            lsmtree.insert_into_db(num, num2words(num) + "_1")
+        for num in nums_2:
+            lsmtree.insert_into_db(num, num2words(num) + "_2")
+            
+        lsmtree.insert_into_db(0, num2words(0))
+        filepaths= list(lsmtree.segments)
+        compacted_file_path = lsmtree.compact_segment_files(filepaths[0], filepaths[1], lsmtree.segment_folder_path / 'compacted_file.txt')
+        
+        with open(compacted_file_path, 'r') as f:
+            actual = list(f.readlines())
+        
+        expected = [
+            "1: one_2",
+            "2: two_2",
+            "3: three_1",
+            "4: four_2",
+            "5: five_1",
+            "7: seven_2",
+            "8: eight_2",
+        ]
+        
+        assert actual == expected

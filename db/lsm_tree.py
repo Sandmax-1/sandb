@@ -58,7 +58,7 @@ class LSMTree:
                 current_segment.seek(floor_offset)
                 curr_offset = floor_offset
                 for line in current_segment:
-                    curr_offset += len(line) 
+                    curr_offset += len(line)
                     stored_key, value = line.split(":")
                     if stored_key == str(key):
                         return value.strip()
@@ -84,9 +84,7 @@ class LSMTree:
             for key, value in self.memtable.items():
                 if index_counter == 0:
                     offset = f.tell()
-                    index.add(
-                        key, offset
-                    )
+                    index.add(key, offset)
                     index_counter = self.segment_chunk_size_for_indexing
 
                 f.write(f"{key}: {value}\n")
@@ -126,3 +124,39 @@ class LSMTree:
 
         return floor, ceil
 
+    @staticmethod
+    def turn_line_into_key_value(line: str) -> Tuple[str, str]:
+        key_value = [x.strip() for x in line.split(":")]
+        return key_value[0], key_value[1]
+
+    def compact_segment_files(
+        self,
+        segment_file_path_1: Path,
+        segment_file_path_2: Path,
+        compacted_file_path: Path,
+    ) -> Path:
+        with open(segment_file_path_1, "r") as segment_file_1, open(
+            segment_file_path_2, "r"
+        ) as segment_file_2, open(compacted_file_path, "a") as compacted_file:
+            l1 = segment_file_1.readline()
+            l2 = segment_file_2.readline()
+            k1, v1 = self.turn_line_into_key_value(l1)
+            k2, v2 = self.turn_line_into_key_value(l2)
+            while segment_file_1 and segment_file_2:
+                if k1 < k2:
+                    compacted_file.write(l1)
+                    l1 = segment_file_1.readline()
+                    k1, v1 = self.turn_line_into_key_value(l1)
+
+                elif k2 < k1:
+                    compacted_file.write(l2)
+                    l2 = segment_file_2.readline()
+                    k2, v2 = self.turn_line_into_key_value(l2)
+
+                elif k1 == k2:
+                    compacted_file.write(l2)
+                    l1 = segment_file_1.readline()
+                    l2 = segment_file_2.readline()
+                    k1, v1 = self.turn_line_into_key_value(l1)
+                    k2, v2 = self.turn_line_into_key_value(l2)
+        return compacted_file_path
