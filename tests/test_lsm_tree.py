@@ -227,13 +227,15 @@ def test_compact_segment_files():
             actual = list(f.readlines())
 
         expected = [
-            "1: one_2",
-            "2: two_2",
-            "3: three_1",
-            "4: four_2",
-            "5: five_1",
-            "7: seven_2",
-            "8: eight_2",
+            "1: one_2\n",
+            "2: two_2\n",
+            "3: three_1\n",
+            "4: four_2\n",
+            "5: five_1\n",
+            "7: seven_2\n",
+            "8: eight_2\n",
         ]
+
+        print(actual)
 
         assert actual == expected

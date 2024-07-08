@@ -142,21 +142,45 @@ class LSMTree:
             l2 = segment_file_2.readline()
             k1, v1 = self.turn_line_into_key_value(l1)
             k2, v2 = self.turn_line_into_key_value(l2)
-            while segment_file_1 and segment_file_2:
+            file_1_empty = False
+            file_2_empty = False
+            while not (file_1_empty or file_2_empty):
                 if k1 < k2:
                     compacted_file.write(l1)
                     l1 = segment_file_1.readline()
+                    if not l1:
+                        file_1_empty = True
+                        continue
                     k1, v1 = self.turn_line_into_key_value(l1)
 
                 elif k2 < k1:
                     compacted_file.write(l2)
                     l2 = segment_file_2.readline()
+                    if not l2:
+                        file_2_empty = True
+                        continue
+
                     k2, v2 = self.turn_line_into_key_value(l2)
 
                 elif k1 == k2:
                     compacted_file.write(l2)
                     l1 = segment_file_1.readline()
+                    if not l1:
+                        file_1_empty = True
+                        continue
                     l2 = segment_file_2.readline()
+                    if not l2:
+                        file_2_empty = True
+                        continue
+
                     k1, v1 = self.turn_line_into_key_value(l1)
                     k2, v2 = self.turn_line_into_key_value(l2)
+
+            remaining_file = segment_file_1 if not file_1_empty else segment_file_2
+            final_line = l1 if not file_1_empty else l2
+
+            compacted_file.write(final_line)
+            for line in remaining_file.readlines():
+                compacted_file.write(line)
+
         return compacted_file_path
