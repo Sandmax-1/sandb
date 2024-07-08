@@ -13,16 +13,16 @@ from db.lsm_tree import LSMTree
 @pytest.fixture()
 def test_tree():
     countries_dict = {
-        "Bulgaria": "Sofia",
-        "Cyprus": "Nicosia",
-        "Germany": "Berlin",
-        "Greenland": "Nuuk",
-        "Hungary": "Budapest",
-        "Iceland": "Reykjavik",
-        "Ireland": "Dublin",
-        "Macedonia": "Skopje",
-        "Portugal": "Lisbon",
-        "Sweden": "Stockholm",
+        "Bulgaria": 10,
+        "Cyprus": 20,
+        "Germany": 30,
+        "Greenland": 40,
+        "Hungary": 50,
+        "Iceland": 60,
+        "Ireland": 70,
+        "Macedonia": 80,
+        "Portugal": 90,
+        "Sweden": 100,
     }
 
     test_tree = RedBlackTree()
@@ -36,10 +36,10 @@ def test_tree():
 @pytest.mark.parametrize(
     argnames=["input_key", "expected_output"],
     argvalues=[
-        ("Andorra", (None, "Sofia")),
-        ("England", ("Nicosia", "Berlin")),
-        ("Zimbabwe", ("Stockholm", None)),
-        ("Cyprus", ("Nicosia", "Nicosia")),
+        ("Andorra", (0, 10)),
+        ("England", (20, 30)),
+        ("Zimbabwe", (100, None)),
+        ("Cyprus", (20, 20)),
     ],
     ids=[
         "Outside begining of tree",
@@ -214,14 +214,18 @@ def test_compact_segment_files():
             lsmtree.insert_into_db(num, num2words(num) + "_1")
         for num in nums_2:
             lsmtree.insert_into_db(num, num2words(num) + "_2")
-            
+
         lsmtree.insert_into_db(0, num2words(0))
-        filepaths= list(lsmtree.segments)
-        compacted_file_path = lsmtree.compact_segment_files(filepaths[0], filepaths[1], lsmtree.segment_folder_path / 'compacted_file.txt')
-        
-        with open(compacted_file_path, 'r') as f:
+        filepaths = list(lsmtree.segments)
+        compacted_file_path = lsmtree.compact_segment_files(
+            filepaths[0],
+            filepaths[1],
+            lsmtree.segment_folder_path / "compacted_file.txt",
+        )
+
+        with open(compacted_file_path, "r") as f:
             actual = list(f.readlines())
-        
+
         expected = [
             "1: one_2",
             "2: two_2",
@@ -231,5 +235,5 @@ def test_compact_segment_files():
             "7: seven_2",
             "8: eight_2",
         ]
-        
+
         assert actual == expected
