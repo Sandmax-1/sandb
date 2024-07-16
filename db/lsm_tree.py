@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from io import TextIOWrapper
 from typing import List, NamedTuple, Optional, Tuple
 from red_black_dict_mod import RedBlackTree
 import sys
@@ -135,46 +136,34 @@ class LSMTree:
         segment_file_path_2: Path,
         compacted_file_path: Path,
     ) -> Path:
+
+        def process_next_line(
+            segment_file: TextIOWrapper,
+        ) -> Tuple[str, bool, Optional[str]]:
+            line = segment_file.readline()
+            if not line:
+                return line, True, None
+            key, _ = self.turn_line_into_key_value(line)
+            return line, False, key
+
         with open(segment_file_path_1, "r") as segment_file_1, open(
             segment_file_path_2, "r"
         ) as segment_file_2, open(compacted_file_path, "a") as compacted_file:
-            l1 = segment_file_1.readline()
-            l2 = segment_file_2.readline()
-            k1, v1 = self.turn_line_into_key_value(l1)
-            k2, v2 = self.turn_line_into_key_value(l2)
-            file_1_empty = False
-            file_2_empty = False
+            l1, file_1_empty, k1 = process_next_line(segment_file_1)
+            l2, file_2_empty, k2 = process_next_line(segment_file_2)
             while not (file_1_empty or file_2_empty):
                 if k1 < k2:
                     compacted_file.write(l1)
-                    l1 = segment_file_1.readline()
-                    if not l1:
-                        file_1_empty = True
-                        continue
-                    k1, v1 = self.turn_line_into_key_value(l1)
+                    l1, file_1_empty, k1 = process_next_line(segment_file_1)
 
                 elif k2 < k1:
                     compacted_file.write(l2)
-                    l2 = segment_file_2.readline()
-                    if not l2:
-                        file_2_empty = True
-                        continue
-
-                    k2, v2 = self.turn_line_into_key_value(l2)
+                    l2, file_2_empty, k2 = process_next_line(segment_file_2)
 
                 elif k1 == k2:
                     compacted_file.write(l2)
-                    l1 = segment_file_1.readline()
-                    if not l1:
-                        file_1_empty = True
-                        continue
-                    l2 = segment_file_2.readline()
-                    if not l2:
-                        file_2_empty = True
-                        continue
-
-                    k1, v1 = self.turn_line_into_key_value(l1)
-                    k2, v2 = self.turn_line_into_key_value(l2)
+                    l1, file_1_empty, k1 = process_next_line(segment_file_1)
+                    l2, file_2_empty, k2 = process_next_line(segment_file_2)
 
             remaining_file = segment_file_1 if not file_1_empty else segment_file_2
             final_line = l1 if not file_1_empty else l2
