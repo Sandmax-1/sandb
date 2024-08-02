@@ -217,9 +217,8 @@ def test_compact_segment_files():
 
         lsmtree.insert_into_db(0, num2words(0))
         filepaths = list(lsmtree.segments)
-        compacted_file_path = lsmtree.compact_segment_files(
-            filepaths[0],
-            filepaths[1],
+        compacted_file_path = lsmtree.merge_segment_files(
+            reversed(filepaths),
             lsmtree.segment_folder_path / "compacted_file.txt",
         )
 
