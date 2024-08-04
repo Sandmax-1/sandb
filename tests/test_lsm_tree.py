@@ -7,7 +7,9 @@ from num2words import num2words
 from red_black_dict_mod import RedBlackTree
 
 from db.config import ROOT_DIR
-from db.lsm_tree import LSMTree
+from db.lsm_tree import LSMTree, merge_segment_files
+
+import glob
 
 
 @pytest.fixture()
@@ -204,37 +206,40 @@ def test_write_to_db():
         assert len(lsmtree.memtable) == 25
 
 
-def test_compact_segment_files():
-    nums_1 = [1, 2, 3, 4, 5]
-    nums_2 = [1, 2, 4, 7, 8]
+@pytest.mark.parametrize(
+    argnames=["file_contents", "expected_merged_file_contents"],
+    argvalues=[
+        (
+            [[1, 2, 3, 4, 5], [1, 2, 4, 7, 8]],
+            [
+                "1: one_2\n",
+                "2: two_2\n",
+                "3: three_1\n",
+                "4: four_2\n",
+                "5: five_1\n",
+                "7: seven_2\n",
+                "8: eight_2\n",
+            ],
+        ),
+    ],
+)
+def test_compact_segment_files(
+    file_contents: list[list[int]], expected_merged_file_contents: list[str]
+):
+    filepaths = []
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
-        lsmtree = LSMTree(5, 1)
-        lsmtree.segment_folder_path = Path(tmp)
-        for num in nums_1:
-            lsmtree.insert_into_db(num, num2words(num) + "_1")
-        for num in nums_2:
-            lsmtree.insert_into_db(num, num2words(num) + "_2")
+        for index, contents in enumerate(file_contents):
+            filepath = Path(tmp) / f"segment_{index}.txt"
+            filepaths.append(filepath)
+            with open(filepath, "a") as f:
+                for val in contents:
+                    f.write(f"{val}: {num2words(val)}_{index + 1}\n")
 
-        lsmtree.insert_into_db(0, num2words(0))
-        filepaths = list(lsmtree.segments)
-        compacted_file_path = lsmtree.merge_segment_files(
-            reversed(filepaths),
-            lsmtree.segment_folder_path / "compacted_file.txt",
+        output_filepath = merge_segment_files(
+            reversed(filepaths), Path(tmp) / "output_file.txt"
         )
 
-        with open(compacted_file_path, "r") as f:
+        with open(output_filepath, "r") as f:
             actual = list(f.readlines())
 
-        expected = [
-            "1: one_2\n",
-            "2: two_2\n",
-            "3: three_1\n",
-            "4: four_2\n",
-            "5: five_1\n",
-            "7: seven_2\n",
-            "8: eight_2\n",
-        ]
-
-        print(actual)
-
-        assert actual == expected
+        assert actual == expected_merged_file_contents

@@ -129,10 +129,12 @@ class LSMTree:
     @staticmethod
     def turn_line_into_key_value(line: str) -> Tuple[int, str]:
         key_value = [x.strip() for x in line.split(":")]
-        if len(key_value) != 2: 
-            raise Exception(f'''Line was parsed incorrectly.
+        if len(key_value) != 2:
+            raise Exception(
+                f"""Line was parsed incorrectly.
                             Expected a key value pair seperated by a colon.
-                            Received: {line}''')
+                            Received: {line}"""
+            )
         return int(key_value[0]), key_value[1]
 
     def compact_segment_files(
@@ -179,55 +181,68 @@ class LSMTree:
 
         return compacted_file_path
 
-    def merge_segment_files(
-        self,
-        segment_file_paths: Tuple[Path],
-        merged_file_path: Path,
-    ) -> Path:
 
-        with open(merged_file_path, "a") as output_file:
+def merge_segment_files(
+    segment_file_paths: Tuple[Path],
+    merged_file_path: Path,
+) -> Path:
 
-            try:
-                segment_files = [file.open("r") for file in segment_file_paths]
-                lines = [
-                    file.readline()
-                    for file in segment_files
-                ]
-                keys = [self.turn_line_into_key_value(line)[0] for line in lines]
+    def turn_line_into_key_value(line: str) -> Tuple[int, str]:
+        key_value = [x.strip() for x in line.split(":")]
+        if len(key_value) != 2:
+            raise Exception(
+                f"""Line was parsed incorrectly.
+                            Expected a key value pair seperated by a colon.
+                            Received: {line}"""
+            )
+        return int(key_value[0]), key_value[1]
 
-                while any(keys):
-                    # This gets us the value we need to add to the merged file provided the
-                    # segment_files_list is in order of newest file to oldest.
-                    
-                    # TODO: This will only work with integer keys
-                    min_value_index = keys.index(min(keys, key=lambda x: inf if x == '' else x))
-                    key = keys[min_value_index]
+    with open(merged_file_path, "a") as output_file:
 
-                    output_file.write(lines[min_value_index])
+        try:
+            segment_files = [file.open("r") for file in segment_file_paths]
+            lines = [file.readline() for file in segment_files]
+            keys = [turn_line_into_key_value(line)[0] for line in lines]
 
-                    lines[min_value_index] = segment_files[min_value_index].readline()
-                    
-                    if lines[min_value_index]:
-                        keys[min_value_index] = self.turn_line_into_key_value(lines[min_value_index])[0]
-                    else:
-                        keys[min_value_index] = ''
-                    
-                    breakout = False
-                    
-                    while not breakout: 
-                        try: 
-                            next_index = keys.index(key)
-                            lines[next_index] = segment_files[next_index].readline()
-                            if lines[next_index]:
-                                keys[next_index] = self.turn_line_into_key_value(lines[next_index])[0]
-                            else:
-                                keys[next_index] = ''
-                                
-                        except ValueError:
-                            breakout = True
-            except:
-                pass
-            finally:
-                for file in segment_files:
-                    file.close()
-        return merged_file_path
+            while any(keys):
+                # This gets us the value we need to add to the merged file provided the
+                # segment_files_list is in order of newest file to oldest.
+
+                # TODO: This will only work with integer keys
+                min_value_index = keys.index(
+                    min(keys, key=lambda x: inf if x == "" else x)
+                )
+                key = keys[min_value_index]
+
+                output_file.write(lines[min_value_index])
+
+                lines[min_value_index] = segment_files[min_value_index].readline()
+
+                if lines[min_value_index]:
+                    keys[min_value_index] = turn_line_into_key_value(
+                        lines[min_value_index]
+                    )[0]
+                else:
+                    keys[min_value_index] = ""
+
+                breakout = False
+
+                while not breakout:
+                    try:
+                        next_index = keys.index(key)
+                        lines[next_index] = segment_files[next_index].readline()
+                        if lines[next_index]:
+                            keys[next_index] = turn_line_into_key_value(
+                                lines[next_index]
+                            )[0]
+                        else:
+                            keys[next_index] = ""
+
+                    except ValueError:
+                        breakout = True
+        except:
+            pass
+        finally:
+            for file in segment_files:
+                file.close()
+    return merged_file_path
