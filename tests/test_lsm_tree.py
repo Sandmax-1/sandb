@@ -208,7 +208,7 @@ def test_write_to_db():
 
 @pytest.mark.parametrize(
     argnames=["file_contents", "expected_merged_file_contents"],
-    ids=["Original 2 file test", "3 files"],
+    ids=["Original 2 file test", "3 files", "empty file"],
     argvalues=[
         (
             [[1, 2, 3, 4, 5], [1, 2, 4, 7, 8]],
@@ -233,6 +233,14 @@ def test_write_to_db():
                 "6: six_3\n",
                 "7: seven_2\n",
                 "8: eight_3\n",
+            ],
+        ),
+        (
+            [[1, 2, 3], []],
+            [
+                "1: one_1\n",
+                "2: two_1\n",
+                "3: three_1\n",
             ],
         ),
     ],

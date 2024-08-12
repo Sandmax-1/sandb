@@ -186,16 +186,18 @@ def merge_segment_files(
     segment_file_paths: Tuple[Path],
     merged_file_path: Path,
 ) -> Path:
-    
-    # TODO: Need to test whether this is actually more efficient than merging two files over and over. 
+
+    # TODO: Need to test whether this is actually more efficient than merging two files over and over.
 
     def turn_line_into_key_value(line: str) -> Tuple[int, str]:
         key_value = [x.strip() for x in line.split(":")]
         if len(key_value) != 2:
             raise Exception(
-                f"""Line was parsed incorrectly.
-                            Expected a key value pair seperated by a colon.
-                            Received: {line}"""
+                (
+                    "Line was parsed incorrectly.\n"
+                    "Expected a key value pair seperated by a colon.\n"
+                    f"Received: {line}"
+                )
             )
         return int(key_value[0]), key_value[1]
 
@@ -204,7 +206,7 @@ def merge_segment_files(
         try:
             segment_files = [file.open("r") for file in segment_file_paths]
             lines = [file.readline() for file in segment_files]
-            keys = [turn_line_into_key_value(line)[0] for line in lines]
+            keys = [turn_line_into_key_value(line)[0] if line else "" for line in lines]
 
             while any(keys):
                 # This gets us the value we need to add to the merged file provided the
@@ -242,8 +244,8 @@ def merge_segment_files(
 
                     except ValueError:
                         breakout = True
-        except:
-            pass
+        except Exception as e:
+            raise e
         finally:
             for file in segment_files:
                 file.close()
