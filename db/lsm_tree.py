@@ -186,6 +186,8 @@ def merge_segment_files(
     segment_file_paths: Tuple[Path],
     merged_file_path: Path,
 ) -> Path:
+    
+    # TODO: Need to test whether this is actually more efficient than merging two files over and over. 
 
     def turn_line_into_key_value(line: str) -> Tuple[int, str]:
         key_value = [x.strip() for x in line.split(":")]
