@@ -9,11 +9,9 @@ from red_black_dict_mod import RedBlackTree
 from db.config import ROOT_DIR
 from db.lsm_tree import LSMTree, merge_segment_files
 
-import glob
 
-
-@pytest.fixture()
-def test_tree():
+@pytest.fixture  # type: ignore
+def test_tree() -> RedBlackTree:
     countries_dict = {
         "Bulgaria": 10,
         "Cyprus": 20,
@@ -35,7 +33,7 @@ def test_tree():
     return test_tree
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize(  # type: ignore
     argnames=["input_key", "expected_output"],
     argvalues=[
         ("Andorra", (0, 10)),
@@ -50,7 +48,9 @@ def test_tree():
         "Hit a key",
     ],
 )
-def test_get_floor_ceil_of_key_in_index(input_key, expected_output, test_tree):
+def test_get_floor_ceil_of_key_in_index(
+    input_key: str, expected_output: tuple[int, int | None], test_tree: RedBlackTree
+) -> None:
     lsm = LSMTree()
     assert lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
 
@@ -79,15 +79,15 @@ LIST_OF_NUMS = [
 ]
 
 
-def test_read_from_db():
+def test_read_from_db() -> None:
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
         lsmtree = LSMTree(10, 3)
         lsmtree.segment_folder_path = Path(tmp)
         for num in LIST_OF_NUMS:
             lsmtree.insert_into_db(num, num2words(num))
 
-        assert lsmtree.read_from_db(10) == "ten"
-        assert lsmtree.read_from_db(3) is None
+        assert lsmtree.read_from_db("10") == "ten"
+        assert lsmtree.read_from_db("3") == ""
 
 
 LONGER_LIST_OF_NUMS = [
@@ -194,7 +194,7 @@ LONGER_LIST_OF_NUMS = [
 ]
 
 
-def test_write_to_db():
+def test_write_to_db() -> None:
     # Expect 3 files and a memtable with 25 els. as Dupes are in different segments
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
         lsmtree = LSMTree(25, 5)
@@ -206,7 +206,7 @@ def test_write_to_db():
         assert len(lsmtree.memtable) == 25
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize(  # type: ignore
     argnames=["file_contents", "expected_merged_file_contents"],
     ids=[
         "Original 2 file test",
@@ -256,7 +256,7 @@ def test_write_to_db():
 )
 def test_compact_segment_files(
     file_contents: list[list[int]], expected_merged_file_contents: list[str]
-):
+) -> None:
     filepaths = []
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
         for index, contents in enumerate(file_contents):
@@ -267,7 +267,7 @@ def test_compact_segment_files(
                     f.write(f"{val}: {num2words(val)}_{index + 1}\n")
 
         output_filepath = merge_segment_files(
-            reversed(filepaths), Path(tmp) / "output_file.txt"
+            tuple(reversed(filepaths)), Path(tmp) / "output_file.txt"
         )
 
         with open(output_filepath, "r") as f:
