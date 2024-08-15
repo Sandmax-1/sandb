@@ -160,5 +160,7 @@ cython_debug/
 #.idea/
 
 
+.vscode
+
 # Ignore all tmp files and folders. Sometimes tmpfile module fails to clean up...
 tmp*
