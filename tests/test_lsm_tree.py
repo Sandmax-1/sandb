@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 import pytest
 from num2words import num2words
 from red_black_dict_mod import RedBlackTree
+from sortedcontainers import SortedDict
 
 from db.config import ROOT_DIR
 from db.lsm_tree import LSMTree, merge_segment_files
@@ -25,10 +26,10 @@ def test_tree() -> RedBlackTree:
         "Sweden": 100,
     }
 
-    test_tree = RedBlackTree()
+    test_tree = SortedDict()
 
     for key, value in countries_dict.items():
-        test_tree.add(key, value)
+        test_tree.update({key: value})
 
     return test_tree
 
@@ -86,8 +87,8 @@ def test_read_from_db() -> None:
         for num in LIST_OF_NUMS:
             lsmtree.insert_into_db(num, num2words(num))
 
-        assert lsmtree.read_from_db("10") == "ten"
-        assert lsmtree.read_from_db("3") == ""
+        assert lsmtree.read_from_db(10) == "ten"
+        assert lsmtree.read_from_db(3) == ""
 
 
 LONGER_LIST_OF_NUMS = [
