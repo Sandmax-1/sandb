@@ -109,7 +109,7 @@ class LSMTree:
         self, inputted_key: Comparable, index: SortedDict
     ) -> Tuple[int, int | None]:
         """
-        Not very performant algorithm for looping through our red black tree index
+        Not very performant algorithm for looping through our SortedDict index
         to find the boundary where the key to search for is.
 
         I.e. if our tree looks something like:
