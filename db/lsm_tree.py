@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, Protocol, Tuple, TypeVar
 
 from numpy import inf
-from red_black_dict_mod import RedBlackTree
 from sortedcontainers import SortedDict
 
 from db.config import ROOT_DIR
@@ -30,7 +29,7 @@ class LSMTree:
         # This is the SStable storage. First value is file path, second value is the
         # sparse index for the SStable. This is ordered such that we can look through
         # newest to oldest segments.
-        self.segments: OrderedDict[Path, RedBlackTree] = OrderedDict()
+        self.segments: OrderedDict[Path, SortedDict] = OrderedDict()
 
         self.segment_index = 0
 
@@ -83,31 +82,31 @@ class LSMTree:
     def insert_into_db(self, key: Any, value: Any) -> None:
         if len(self.memtable) >= self.memtable_max_size:
             self.flush_memtable_to_disk()
-        self.memtable.update({key, value})
+        self.memtable.update({key: value})
 
     def flush_memtable_to_disk(self) -> None:
         index_counter = self.segment_chunk_size_for_indexing
         segment_file_name = (
             self.segment_folder_path / f"segment_{self.segment_index}.txt"
         )
-        index = RedBlackTree()
+        index = SortedDict()
 
         with open(segment_file_name, "a") as f:
             for key, value in self.memtable.items():
                 if index_counter == 0:
                     offset = f.tell()
-                    index.update({key, offset})
+                    index.update({key: offset})
                     index_counter = self.segment_chunk_size_for_indexing
 
                 f.write(f"{key}: {value}\n")
                 index_counter -= 1
 
-        self.memtable = RedBlackTree()
+        self.memtable = SortedDict()
         self.segments.update({segment_file_name: index})
         self.segment_index += 1
 
     def get_floor_ceil_of_key_in_index(
-        self, inputted_key: Comparable, index: RedBlackTree
+        self, inputted_key: Comparable, index: SortedDict
     ) -> Tuple[int, int | None]:
         """
         Not very performant algorithm for looping through our red black tree index
