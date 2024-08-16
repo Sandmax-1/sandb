@@ -9,6 +9,7 @@ from sortedcontainers import SortedDict
 from db.config import ROOT_DIR
 
 Comparable = TypeVar("Comparable", bound="ComparableType")
+T = TypeVar("T")
 
 
 class ComparableType(Protocol):
@@ -22,7 +23,7 @@ class LSMTree:
     def __init__(
         self, memtable_max_size: int = 1000, segment_chunk_size_for_indexing: int = 100
     ):
-        self.memtable: SortedDict[Comparable, Comparable] = SortedDict()
+        self.memtable: SortedDict[Comparable, T] = SortedDict()
         self.memtable_max_size = memtable_max_size
 
         self.segment_chunk_size_for_indexing = segment_chunk_size_for_indexing
