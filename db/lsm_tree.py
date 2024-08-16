@@ -1,7 +1,7 @@
 import logging
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Protocol, Tuple, TypeVar
+from typing import Protocol, Tuple, TypeVar
 
 from numpy import inf
 from sortedcontainers import SortedDict
@@ -80,7 +80,7 @@ class LSMTree:
 
         return value
 
-    def insert_into_db(self, key: Any, value: Any) -> None:
+    def insert_into_db(self, key: Comparable, value: T) -> None:
         if len(self.memtable) >= self.memtable_max_size:
             self.flush_memtable_to_disk()
         self.memtable.update({key: value})
@@ -90,7 +90,7 @@ class LSMTree:
         segment_file_name = (
             self.segment_folder_path / f"segment_{self.segment_index}.txt"
         )
-        index = SortedDict()
+        index: SortedDict[Comparable, int] = SortedDict()
 
         with open(segment_file_name, "a") as f:
             for key, value in self.memtable.items():
@@ -107,7 +107,7 @@ class LSMTree:
         self.segment_index += 1
 
     def get_floor_ceil_of_key_in_index(
-        self, inputted_key: Comparable, index: SortedDict
+        self, inputted_key: Comparable, index: SortedDict[Comparable, int]
     ) -> Tuple[int, int | None]:
         """
         Not very performant algorithm for looping through our SortedDict index
