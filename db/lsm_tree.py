@@ -37,7 +37,7 @@ class LSMTree:
         self.segment_folder_path = ROOT_DIR / "lsm_segments"
         self.segment_folder_path.mkdir(exist_ok=True)
 
-    def read_from_db(self, key: int) -> str | None:
+    def read_from_db(self, key: Comparable) -> str | None:
         """
         First try and read from the in-memory memtable.
         If the key does not exist in there
@@ -63,7 +63,7 @@ class LSMTree:
 
         return value
 
-    def search_segments_on_disk(self, key: int) -> str | None:
+    def search_segments_on_disk(self, key: Comparable) -> str | None:
         for filepath, index in self.segments.items():
             floor_offset, ceil_offset = self.get_floor_ceil_of_key_in_index(key, index)
             with open(filepath, "r") as current_segment:
