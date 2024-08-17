@@ -1,33 +1,43 @@
 import logging
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Protocol, Tuple, TypeVar
 
 from numpy import inf
-from red_black_dict_mod import RedBlackTree
+from sortedcontainers import SortedDict
 
 from db.config import ROOT_DIR
+
+Comparable = TypeVar("Comparable", bound="ComparableType")
+T = TypeVar("T")
+
+
+class ComparableType(Protocol):
+    """Protocol for annotating comparable types."""
+
+    def __lt__(self: Comparable, other: Comparable) -> bool:
+        pass
 
 
 class LSMTree:
     def __init__(
         self, memtable_max_size: int = 1000, segment_chunk_size_for_indexing: int = 100
     ):
-        self.memtable: RedBlackTree = RedBlackTree()
+        self.memtable: SortedDict[Comparable, T] = SortedDict()
         self.memtable_max_size = memtable_max_size
 
         self.segment_chunk_size_for_indexing = segment_chunk_size_for_indexing
         # This is the SStable storage. First value is file path, second value is the
         # sparse index for the SStable. This is ordered such that we can look through
         # newest to oldest segments.
-        self.segments: OrderedDict[Path, RedBlackTree] = OrderedDict()
+        self.segments: OrderedDict[Path, SortedDict] = OrderedDict()
 
         self.segment_index = 0
 
         self.segment_folder_path = ROOT_DIR / "lsm_segments"
         self.segment_folder_path.mkdir(exist_ok=True)
 
-    def read_from_db(self, key: str) -> str | None:
+    def read_from_db(self, key: Comparable) -> str | None:
         """
         First try and read from the in-memory memtable.
         If the key does not exist in there
@@ -53,7 +63,7 @@ class LSMTree:
 
         return value
 
-    def search_segments_on_disk(self, key: str) -> str | None:
+    def search_segments_on_disk(self, key: Comparable) -> str | None:
         for filepath, index in self.segments.items():
             floor_offset, ceil_offset = self.get_floor_ceil_of_key_in_index(key, index)
             with open(filepath, "r") as current_segment:
@@ -70,37 +80,37 @@ class LSMTree:
 
         return value
 
-    def insert_into_db(self, key: Any, value: Any) -> None:
+    def insert_into_db(self, key: Comparable, value: T) -> None:
         if len(self.memtable) >= self.memtable_max_size:
             self.flush_memtable_to_disk()
-        self.memtable.add(key, value)
+        self.memtable.update({key: value})
 
     def flush_memtable_to_disk(self) -> None:
         index_counter = self.segment_chunk_size_for_indexing
         segment_file_name = (
             self.segment_folder_path / f"segment_{self.segment_index}.txt"
         )
-        index = RedBlackTree()
+        index: SortedDict[Comparable, int] = SortedDict()
 
         with open(segment_file_name, "a") as f:
             for key, value in self.memtable.items():
                 if index_counter == 0:
                     offset = f.tell()
-                    index.add(key, offset)
+                    index.update({key: offset})
                     index_counter = self.segment_chunk_size_for_indexing
 
                 f.write(f"{key}: {value}\n")
                 index_counter -= 1
 
-        self.memtable = RedBlackTree()
+        self.memtable = SortedDict()
         self.segments.update({segment_file_name: index})
         self.segment_index += 1
 
     def get_floor_ceil_of_key_in_index(
-        self, inputted_key: str, index: RedBlackTree
+        self, inputted_key: Comparable, index: SortedDict[Comparable, int]
     ) -> Tuple[int, int | None]:
         """
-        Not very performant algorithm for looping through our red black tree index
+        Not very performant algorithm for looping through our SortedDict index
         to find the boundary where the key to search for is.
 
         I.e. if our tree looks something like:
