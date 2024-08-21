@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sandb"
+version = "0.0.1"
+dependencies = [
+    "sortedcontainers>=2.4.0",
+    "num2words>=0.5.13",
+    "numpy>=2.0.1",
+]
+requires-python = ">= 3.12"
+maintainers = [
+  {name = "Max Sandman", email = "m.sandman@hotmail.co.uk"}
+]
+description = "Implementing a Database from scratch"
