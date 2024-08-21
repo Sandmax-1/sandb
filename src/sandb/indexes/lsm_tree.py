@@ -6,7 +6,7 @@ from typing import Protocol, Tuple, TypeVar
 from numpy import inf
 from sortedcontainers import SortedDict
 
-from db.config import ROOT_DIR
+from sandb.config import ROOT_DIR
 
 Comparable = TypeVar("Comparable", bound="ComparableType")
 T = TypeVar("T")
@@ -42,9 +42,8 @@ class LSMTree:
         First try and read from the in-memory memtable.
         If the key does not exist in there
         look at the segments stored on disk from latest to oldest.
-        As the segments are stored
-        in time order and an append of a new key counts
-        as an update we can stop as soon as we find our key.
+        As the segments are stored in time order and an append of a
+        new key counts as an update we can stop as soon as we find our key.
 
         Args:
             key (str): _description_

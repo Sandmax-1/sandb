@@ -7,8 +7,8 @@ from num2words import num2words
 from red_black_dict_mod import RedBlackTree
 from sortedcontainers import SortedDict
 
-from db.config import ROOT_DIR
-from db.lsm_tree import LSMTree, merge_segment_files
+from sandb.config import ROOT_DIR
+from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
 
 
 @pytest.fixture  # type: ignore

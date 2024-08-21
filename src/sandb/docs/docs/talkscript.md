@@ -46,11 +46,11 @@ SStables have some big advantages over log segments with hash indexes.
 - Merging SSTables is simple and efficient, even if our segments are bigger than the available memory. We essentially use a mergesort algorithm illustrated below
     - if key appears in multiple segments take the latest segment as segments are written sequentially.
 
-![Alt text](image-1.png)
+![Alt text](src/sandb/docs/images/compaction.png)
 
 - In order to find a particular key in the file we no longer need to keep an index of all keys in memory. Say you are looking for a specific key, then as long as you know some bounding keys you can search in between as the log is ordered by key. 
 
-![Alt text](image.png)
+![Alt text](src/sandb/docs/images/sstable.png)
 
 - You still need an in memory index to tell you the offsets of some keys, but this can be very sparse: one key for every few kilobytes of segment file is sufficient.
 
@@ -86,7 +86,7 @@ Like LSM trees B-trees keep key-value pairs sorted by by key which allow efficie
 
 However log structured indexes break down the database inoto variable sized segments and always write a segment sequentially. B-trees break the db down into fixed sized segements typically 4KB in size and read or write one page at a time. This designn corrresponds more closely to the underlying hardware as disks are also arranged in fixed sized blocks. 
 
-![Alt text](image-2.png)
+![Alt text](src/sandb/docs/images/b-tree.png)
 
 - Each page can be identified using an address, or location which allows one page to refer to anohther page (similar to a pointer, but on disk)
 - One page is designated as the root of the tree and any look up starts from here filtering down the pages. WHere each page is responsible for a continuous range of keys.
