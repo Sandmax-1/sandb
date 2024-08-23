@@ -4,7 +4,6 @@ from tempfile import TemporaryDirectory
 
 import pytest
 from num2words import num2words
-from red_black_dict_mod import RedBlackTree
 from sortedcontainers import SortedDict
 
 from sandb.config import ROOT_DIR
@@ -12,7 +11,7 @@ from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
 
 
 @pytest.fixture  # type: ignore
-def test_tree() -> RedBlackTree:
+def test_tree() -> SortedDict:
     countries_dict = {
         "Bulgaria": 10,
         "Cyprus": 20,
@@ -50,7 +49,7 @@ def test_tree() -> RedBlackTree:
     ],
 )
 def test_get_floor_ceil_of_key_in_index(
-    input_key: str, expected_output: tuple[int, int | None], test_tree: RedBlackTree
+    input_key: str, expected_output: tuple[int, int | None], test_tree: SortedDict
 ) -> None:
     lsm = LSMTree()
     assert lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
