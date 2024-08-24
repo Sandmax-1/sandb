@@ -84,10 +84,10 @@ def test_read_from_db() -> None:
         lsmtree = LSMTree(10, 3)
         lsmtree.segment_folder_path = Path(tmp)
         for num in LIST_OF_NUMS:
-            lsmtree.insert_into_db(num, num2words(num))
+            lsmtree.write(num, num2words(num))
 
-        assert lsmtree.read_from_db(10) == "ten"
-        assert lsmtree.read_from_db(3) == ""
+        assert lsmtree.read(10) == "ten"
+        assert lsmtree.read(3) == ""
 
 
 LONGER_LIST_OF_NUMS = [
@@ -200,7 +200,7 @@ def test_write_to_db() -> None:
         lsmtree = LSMTree(25, 5)
         lsmtree.segment_folder_path = Path(tmp)
         for num in LONGER_LIST_OF_NUMS:
-            lsmtree.insert_into_db(num, num2words(num))
+            lsmtree.write(num, num2words(num))
 
         assert os.listdir(tmp) == ["segment_0.txt", "segment_1.txt", "segment_2.txt"]
         assert len(lsmtree.memtable) == 25
