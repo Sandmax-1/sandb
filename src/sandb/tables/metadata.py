@@ -14,6 +14,6 @@ class Column(BaseModel):
 
 class TableMetadata(BaseModel):
     name: str
-    columns: tuple[Column]
+    columns: tuple[Column, ...]
     location: Path
-    indexes: None | tuple[Index]
+    indexes: None | tuple[Index, ...]
