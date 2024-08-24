@@ -35,3 +35,14 @@ jobs:
     - name: Test with pytest
       run: |
         pytest tests
+
+    - name: Test Coverage
+      uses: JotaFan/pycoverage@v1.0.0
+      with:
+        cov-omit-list: tests/*
+        cov-threshold-single: 85
+        cov-threshold-total: 90
+        async-tests: true
+        package-extras: dev
+        github_token: ${{ secrets.github_token }}
+        working_branch: ${{ steps.extract_branch.outputs.branch }}
