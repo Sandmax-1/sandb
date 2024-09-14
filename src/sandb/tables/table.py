@@ -10,7 +10,7 @@ class TableExistsError(Exception):
 def create(metadata: TableMetadata) -> None:
     """
     Creates a "table" folder. Within this folder we have two files.
-    A json file called metadata.json: this will store the conntents of
+    A json file called metadata.json: this will store the contents of
     the metadata TableMetadata object and tell us how to access the other file.
     The other file is called data.csv. It is a csv that we can get the type info
     for from the metadata file. Each row in the csv will correspond to a row in
