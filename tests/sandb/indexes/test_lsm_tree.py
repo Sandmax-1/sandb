@@ -3,10 +3,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-from num2words import num2words
+from num2words import num2words  # type: ignore
 from sortedcontainers import SortedDict
 
 from sandb.config import ROOT_DIR
+from sandb.indexes.abc import Comparable
 from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
 
 
@@ -26,7 +27,9 @@ from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
     ],
 )
 def test_get_floor_ceil_of_key_in_index(
-    input_key: str, expected_output: tuple[int, int | None], test_tree: SortedDict
+    input_key: str,
+    expected_output: tuple[int, int | None],
+    test_tree: SortedDict[Comparable, int],
 ) -> None:
     lsm = LSMTree()
     assert lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
@@ -191,7 +194,7 @@ def test_write_to_db() -> None:
         "normal file plus empty file",
         "only an empty file",
     ],
-    argvalues=[
+    argvalues=[  # type: ignore
         (
             [[1, 2, 3, 4, 5], [1, 2, 4, 7, 8]],
             [
@@ -234,7 +237,7 @@ def test_write_to_db() -> None:
 def test_compact_segment_files(
     file_contents: list[list[int]], expected_merged_file_contents: list[str]
 ) -> None:
-    filepaths = []
+    filepaths: list[Path] = []
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
         for index, contents in enumerate(file_contents):
             filepath = Path(tmp) / f"segment_{index}.txt"

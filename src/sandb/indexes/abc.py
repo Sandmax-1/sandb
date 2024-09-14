@@ -1,14 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Protocol, TypeVar
-
-Comparable = TypeVar("Comparable", bound="ComparableType")
+from typing import Any, Protocol
 
 
-class ComparableType(Protocol):
+class Comparable(Protocol):
     """Protocol for annotating comparable types."""
 
-    def __lt__(self: Comparable, other: Comparable) -> bool:
-        pass
+    def __lt__(self, other: Any, /) -> bool:
+        ...
 
 
 class Index(ABC):
@@ -17,5 +15,5 @@ class Index(ABC):
         ...
 
     @abstractmethod
-    def write(self, key: Comparable, data: str) -> None:
+    def write(self, key: Comparable, value: Any) -> None:
         ...

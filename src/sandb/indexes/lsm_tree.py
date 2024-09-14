@@ -1,7 +1,7 @@
 import logging
 from collections import OrderedDict
 from pathlib import Path
-from typing import Tuple, TypeVar
+from typing import Any, Tuple, TypeVar
 
 from numpy import inf
 from sortedcontainers import SortedDict
@@ -16,14 +16,14 @@ class LSMTree(Index):
     def __init__(
         self, memtable_max_size: int = 1000, segment_chunk_size_for_indexing: int = 100
     ):
-        self.memtable: SortedDict[Comparable, T] = SortedDict()
+        self.memtable: SortedDict[Comparable, Any] = SortedDict()
         self.memtable_max_size = memtable_max_size
 
         self.segment_chunk_size_for_indexing = segment_chunk_size_for_indexing
         # This is the SStable storage. First value is file path, second value is the
         # sparse index for the SStable. This is ordered such that we can look through
         # newest to oldest segments.
-        self.segments: OrderedDict[Path, SortedDict] = OrderedDict()
+        self.segments: OrderedDict[Path, SortedDict[Comparable, Any]] = OrderedDict()
 
         self.segment_index = 0
 
@@ -70,9 +70,9 @@ class LSMTree(Index):
                         value = ""
                         break
 
-        return value
+        return value  # type: ignore
 
-    def write(self, key: Comparable, value: T) -> None:
+    def write(self, key: Comparable, value: Any) -> None:
         if len(self.memtable) >= self.memtable_max_size:
             self.flush_memtable_to_disk()
         self.memtable.update({key: value})
@@ -126,7 +126,7 @@ class LSMTree(Index):
 
         # Value either not in segment, or in final section.
         if ceil is None:
-            floor = value
+            floor = value  # type: ignore
 
         return floor, ceil
 
@@ -150,6 +150,7 @@ def merge_segment_files(
             )
         return int(key_value[0]), key_value[1]
 
+    segment_files = []  # Initialising to avoid possible unbound errors in finally block
     with open(merged_file_path, "a") as output_file:
         try:
             segment_files = [file.open("r") for file in segment_file_paths]

@@ -1,4 +1,5 @@
 import pytest
+from pytest import TempPathFactory
 from sortedcontainers import SortedDict
 
 from sandb.tables.metadata import Column, TableMetadata
@@ -25,7 +26,7 @@ def test_tree() -> SortedDict[str, int]:
 
 
 @pytest.fixture  # type: ignore
-def test_table_metadata(tmp_path_factory) -> TableMetadata:
+def test_table_metadata(tmp_path_factory: TempPathFactory) -> TableMetadata:
     path = tmp_path_factory.mktemp("tables")
     return TableMetadata(
         name="test_table",
