@@ -1,5 +1,6 @@
+import json
+
 import pytest
-from pydantic_core import from_json
 
 from sandb.tables.metadata import TableMetadata
 from sandb.tables.table import TableExistsError, create
@@ -11,13 +12,9 @@ def test_create_happy_path(test_table_metadata: TableMetadata) -> None:
     with open(
         test_table_metadata.location / test_table_metadata.name / "metadata.json"
     ) as f:
-        saved_metadata = f.read()
+        saved_metadata = json.load(f)
 
-    actual_metadata = TableMetadata.model_validate_json(
-        from_json(saved_metadata, allow_partial=True)
-    )
-
-    assert actual_metadata == test_table_metadata
+    assert saved_metadata == test_table_metadata.model_dump_json()
 
 
 def test_create_table_folder_already_exists(test_table_metadata: TableMetadata) -> None:
