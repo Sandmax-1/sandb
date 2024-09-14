@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from sandb.indexes.abc import Index
 
@@ -31,4 +31,4 @@ class TableMetadata(BaseModel):
     name: str
     columns: tuple[Column, ...]
     location: Path
-    indexes: None | tuple[Index, ...]
+    indexes: None | tuple[Index, ...] = Field(default=None)

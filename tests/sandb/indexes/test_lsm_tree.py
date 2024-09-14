@@ -10,29 +10,6 @@ from sandb.config import ROOT_DIR
 from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
 
 
-@pytest.fixture  # type: ignore
-def test_tree() -> SortedDict:
-    countries_dict = {
-        "Bulgaria": 10,
-        "Cyprus": 20,
-        "Germany": 30,
-        "Greenland": 40,
-        "Hungary": 50,
-        "Iceland": 60,
-        "Ireland": 70,
-        "Macedonia": 80,
-        "Portugal": 90,
-        "Sweden": 100,
-    }
-
-    test_tree = SortedDict()
-
-    for key, value in countries_dict.items():
-        test_tree.update({key: value})
-
-    return test_tree
-
-
 @pytest.mark.parametrize(  # type: ignore
     argnames=["input_key", "expected_output"],
     argvalues=[
