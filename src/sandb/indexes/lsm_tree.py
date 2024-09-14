@@ -56,6 +56,7 @@ class LSMTree(Index):
         return value
 
     def search_segments_on_disk(self, key: Comparable) -> str | None:
+        value = ""
         for filepath, index in self.segments.items():
             floor_offset, ceil_offset = self.get_floor_ceil_of_key_in_index(key, index)
             with open(filepath, "r") as current_segment:
@@ -70,7 +71,7 @@ class LSMTree(Index):
                         value = ""
                         break
 
-        return value  # type: ignore
+        return value
 
     def write(self, key: Comparable, value: Any) -> None:
         if len(self.memtable) >= self.memtable_max_size:
@@ -115,6 +116,7 @@ class LSMTree(Index):
         floor = 0
         ceil = None
         prev_value = 0
+        value = None
         for key, value in index.items():
             value = int(value)
             if key == inputted_key:
@@ -126,7 +128,7 @@ class LSMTree(Index):
 
         # Value either not in segment, or in final section.
         if ceil is None:
-            floor = value  # type: ignore
+            floor = value
 
         return floor, ceil
 

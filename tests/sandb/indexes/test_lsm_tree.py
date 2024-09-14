@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-from num2words import num2words  # type: ignore
+from num2words import num2words
 from sortedcontainers import SortedDict
 
 from sandb.config import ROOT_DIR
@@ -194,7 +194,7 @@ def test_write_to_db() -> None:
         "normal file plus empty file",
         "only an empty file",
     ],
-    argvalues=[  # type: ignore
+    argvalues=[
         (
             [[1, 2, 3, 4, 5], [1, 2, 4, 7, 8]],
             [
