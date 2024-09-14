@@ -116,7 +116,7 @@ class LSMTree(Index):
         floor = 0
         ceil = None
         prev_value = 0
-        value = None
+        value = 0
         for key, value in index.items():
             value = int(value)
             if key == inputted_key:
