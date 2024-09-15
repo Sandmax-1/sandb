@@ -1,43 +1,36 @@
 import logging
 from collections import OrderedDict
 from pathlib import Path
-from typing import Protocol, Tuple, TypeVar
+from typing import Any, Tuple, TypeVar
 
 from numpy import inf
 from sortedcontainers import SortedDict
 
 from sandb.config import ROOT_DIR
+from sandb.indexes.abc import Comparable, Index
 
-Comparable = TypeVar("Comparable", bound="ComparableType")
 T = TypeVar("T")
 
 
-class ComparableType(Protocol):
-    """Protocol for annotating comparable types."""
-
-    def __lt__(self: Comparable, other: Comparable) -> bool:
-        pass
-
-
-class LSMTree:
+class LSMTree(Index):
     def __init__(
         self, memtable_max_size: int = 1000, segment_chunk_size_for_indexing: int = 100
     ):
-        self.memtable: SortedDict[Comparable, T] = SortedDict()
+        self.memtable: SortedDict[Comparable, Any] = SortedDict()
         self.memtable_max_size = memtable_max_size
 
         self.segment_chunk_size_for_indexing = segment_chunk_size_for_indexing
         # This is the SStable storage. First value is file path, second value is the
         # sparse index for the SStable. This is ordered such that we can look through
         # newest to oldest segments.
-        self.segments: OrderedDict[Path, SortedDict] = OrderedDict()
+        self.segments: OrderedDict[Path, SortedDict[Comparable, Any]] = OrderedDict()
 
         self.segment_index = 0
 
         self.segment_folder_path = ROOT_DIR / "lsm_segments"
         self.segment_folder_path.mkdir(exist_ok=True)
 
-    def read_from_db(self, key: Comparable) -> str | None:
+    def read(self, key: Comparable) -> str | None:
         """
         First try and read from the in-memory memtable.
         If the key does not exist in there
@@ -63,6 +56,7 @@ class LSMTree:
         return value
 
     def search_segments_on_disk(self, key: Comparable) -> str | None:
+        value = ""
         for filepath, index in self.segments.items():
             floor_offset, ceil_offset = self.get_floor_ceil_of_key_in_index(key, index)
             with open(filepath, "r") as current_segment:
@@ -79,7 +73,7 @@ class LSMTree:
 
         return value
 
-    def insert_into_db(self, key: Comparable, value: T) -> None:
+    def write(self, key: Comparable, value: Any) -> None:
         if len(self.memtable) >= self.memtable_max_size:
             self.flush_memtable_to_disk()
         self.memtable.update({key: value})
@@ -122,6 +116,7 @@ class LSMTree:
         floor = 0
         ceil = None
         prev_value = 0
+        value = 0
         for key, value in index.items():
             value = int(value)
             if key == inputted_key:
@@ -136,60 +131,6 @@ class LSMTree:
             floor = value
 
         return floor, ceil
-
-    @staticmethod
-    def turn_line_into_key_value(line: str) -> Tuple[int, str]:
-        key_value = [x.strip() for x in line.split(":")]
-        if len(key_value) != 2:
-            raise Exception(
-                f"""Line was parsed incorrectly.
-                            Expected a key value pair seperated by a colon.
-                            Received: {line}"""
-            )
-        return int(key_value[0]), key_value[1]
-
-    # def compact_segment_files(
-    #     self,
-    #     segment_file_path_1: Path,
-    #     segment_file_path_2: Path,
-    #     compacted_file_path: Path,
-    # ) -> Path:
-    #     def process_next_line(
-    #         segment_file: TextIOWrapper,
-    #     ) -> Tuple[str, bool, Optional[str]]:
-    #         line = segment_file.readline()
-    #         if not line:
-    #             return line, True, None
-    #         key, _ = self.turn_line_into_key_value(line)
-    #         return line, False, key
-
-    #     with open(segment_file_path_1, "r") as segment_file_1, open(
-    #         segment_file_path_2, "r"
-    #     ) as segment_file_2, open(compacted_file_path, "a") as compacted_file:
-    #         l1, file_1_empty, k1 = process_next_line(segment_file_1)
-    #         l2, file_2_empty, k2 = process_next_line(segment_file_2)
-    #         while not (file_1_empty or file_2_empty):
-    #             if k1 < k2:
-    #                 compacted_file.write(l1)
-    #                 l1, file_1_empty, k1 = process_next_line(segment_file_1)
-
-    #             elif k2 < k1:
-    #                 compacted_file.write(l2)
-    #                 l2, file_2_empty, k2 = process_next_line(segment_file_2)
-
-    #             elif k1 == k2:
-    #                 compacted_file.write(l2)
-    #                 l1, file_1_empty, k1 = process_next_line(segment_file_1)
-    #                 l2, file_2_empty, k2 = process_next_line(segment_file_2)
-
-    #         remaining_file = segment_file_1 if not file_1_empty else segment_file_2
-    #         final_line = l1 if not file_1_empty else l2
-
-    #         compacted_file.write(final_line)
-    #         for line in remaining_file.readlines():
-    #             compacted_file.write(line)
-
-    #     return compacted_file_path
 
 
 def merge_segment_files(
@@ -211,6 +152,7 @@ def merge_segment_files(
             )
         return int(key_value[0]), key_value[1]
 
+    segment_files = []  # Initialising to avoid possible unbound errors in finally block
     with open(merged_file_path, "a") as output_file:
         try:
             segment_files = [file.open("r") for file in segment_file_paths]

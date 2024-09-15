@@ -7,30 +7,8 @@ from num2words import num2words
 from sortedcontainers import SortedDict
 
 from sandb.config import ROOT_DIR
+from sandb.indexes.abc import Comparable
 from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
-
-
-@pytest.fixture  # type: ignore
-def test_tree() -> SortedDict:
-    countries_dict = {
-        "Bulgaria": 10,
-        "Cyprus": 20,
-        "Germany": 30,
-        "Greenland": 40,
-        "Hungary": 50,
-        "Iceland": 60,
-        "Ireland": 70,
-        "Macedonia": 80,
-        "Portugal": 90,
-        "Sweden": 100,
-    }
-
-    test_tree = SortedDict()
-
-    for key, value in countries_dict.items():
-        test_tree.update({key: value})
-
-    return test_tree
 
 
 @pytest.mark.parametrize(  # type: ignore
@@ -49,7 +27,9 @@ def test_tree() -> SortedDict:
     ],
 )
 def test_get_floor_ceil_of_key_in_index(
-    input_key: str, expected_output: tuple[int, int | None], test_tree: SortedDict
+    input_key: str,
+    expected_output: tuple[int, int | None],
+    test_tree: SortedDict[Comparable, int],
 ) -> None:
     lsm = LSMTree()
     assert lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
@@ -84,10 +64,10 @@ def test_read_from_db() -> None:
         lsmtree = LSMTree(10, 3)
         lsmtree.segment_folder_path = Path(tmp)
         for num in LIST_OF_NUMS:
-            lsmtree.insert_into_db(num, num2words(num))
+            lsmtree.write(num, num2words(num))
 
-        assert lsmtree.read_from_db(10) == "ten"
-        assert lsmtree.read_from_db(3) == ""
+        assert lsmtree.read(10) == "ten"
+        assert lsmtree.read(3) == ""
 
 
 LONGER_LIST_OF_NUMS = [
@@ -200,7 +180,7 @@ def test_write_to_db() -> None:
         lsmtree = LSMTree(25, 5)
         lsmtree.segment_folder_path = Path(tmp)
         for num in LONGER_LIST_OF_NUMS:
-            lsmtree.insert_into_db(num, num2words(num))
+            lsmtree.write(num, num2words(num))
 
         assert os.listdir(tmp) == ["segment_0.txt", "segment_1.txt", "segment_2.txt"]
         assert len(lsmtree.memtable) == 25
@@ -257,7 +237,7 @@ def test_write_to_db() -> None:
 def test_compact_segment_files(
     file_contents: list[list[int]], expected_merged_file_contents: list[str]
 ) -> None:
-    filepaths = []
+    filepaths: list[Path] = []
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
         for index, contents in enumerate(file_contents):
             filepath = Path(tmp) / f"segment_{index}.txt"
