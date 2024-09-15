@@ -1,7 +1,7 @@
 from pathlib import Path
-from typing import Any, Literal, Mapping, Type, Union, get_args
+from typing import Literal, Mapping, Type, Union, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from sandb.indexes.abc import Index
 
@@ -28,14 +28,18 @@ class Column(BaseModel):
 
     @field_serializer("dtype")
     def serialize_dtype(self, dtype: VALID_DTYPE) -> VALID_DTYPE_ALIAS:
-        return VALID_DTYPE_MAPPING[dtype]
+        """
+        When sending a python dtype to json convert first to
+        integer value defined in VALID_DTYPE_MAPPING.
 
-    @field_validator("dtype", mode="before")
-    def deserialize_dtype(cls, value: Any) -> VALID_DTYPE:
-        if value in REVERSE_DTYPE_MAPPING.keys():
-            return REVERSE_DTYPE_MAPPING[value]
-        # This will get cleaned up by pydantic so ignore mypy
-        return value  # type: ignore[no-any-return]
+        Args:
+            dtype (VALID_DTYPE): Will be a valid python dtype.
+
+        Returns:
+            VALID_DTYPE_ALIAS: The integer alias for the supplied
+                               dtype defined by VALID_DTYPE_MAPPING.
+        """
+        return VALID_DTYPE_MAPPING[dtype]
 
 
 class TableMetadata(BaseModel):
