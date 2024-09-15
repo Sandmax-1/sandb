@@ -59,6 +59,10 @@ class TableMetadata(BaseModel):
     def dtypes(self) -> tuple[Type[VALID_DTYPE], ...]:
         return tuple(column.dtype for column in self.columns)
 
+    @cached_property
+    def col_names(self) -> tuple[str, ...]:
+        return tuple(column.name for column in self.columns)
+
     def metadata_path(self) -> Path:
         return self.location / self.name / "metadata.json"
 

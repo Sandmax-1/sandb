@@ -1,9 +1,10 @@
 import json
+from typing import Any
 
 import pytest
 
 from sandb.tables.metadata import TableMetadata
-from sandb.tables.table import RowTypeError, TableExistsError, create, write
+from sandb.tables.table import RowTypeError, TableExistsError, create, read, write
 
 
 def test_create_happy_path(test_table_metadata: TableMetadata) -> None:
@@ -38,7 +39,7 @@ def test_write_happy_path(test_table_metadata: TableMetadata) -> None:
 
     data = read_data_file(test_table_metadata)
     assert len(data) == 1
-    assert data[0].strip() == "'John', 30"
+    assert data[0].strip() == "John, 30"
 
 
 # Test for TypeError when passing invalid data type
@@ -62,8 +63,8 @@ def test_write_append_rows(test_table_metadata: TableMetadata) -> None:
 
     data = read_data_file(test_table_metadata)
     assert len(data) == 2
-    assert data[0].strip() == "'Alice', 25"
-    assert data[1].strip() == "'Bob', 40"
+    assert data[0].strip() == "Alice, 25"
+    assert data[1].strip() == "Bob, 40"
 
 
 def test_write_incorrect_row_length(test_table_metadata: TableMetadata) -> None:
@@ -71,3 +72,32 @@ def test_write_incorrect_row_length(test_table_metadata: TableMetadata) -> None:
 
     with pytest.raises(RowTypeError):
         write(row, test_table_metadata)
+
+
+@pytest.mark.parametrize(  # type: ignore
+    argnames=["rows_to_insert", "column_to_query", "predicate", "expected"],
+    argvalues=[
+        ((("Alice", 10), ("Bob", 15)), "col_1", "Alice", [("Alice", 10)]),
+        (
+            (("Alice", 10), ("Bob", 15), ("Alice", 20)),
+            "col_1",
+            "Alice",
+            [("Alice", 10), ("Alice", 20)],
+        ),
+        ((("Alice", 10), ("Bob", 15)), "col_1", "Chris", []),
+    ],
+    ids=["one matching row", "two matching rows", "no matching rows"],
+)
+def test_read(
+    rows_to_insert: tuple[tuple[Any]],
+    column_to_query: str,
+    predicate: Any,
+    expected: list[tuple[Any]],
+    test_table_metadata: TableMetadata,
+) -> None:
+    create(test_table_metadata)
+    for row in rows_to_insert:
+        write(row, test_table_metadata)
+    actual = read(column_to_query, predicate, test_table_metadata)
+
+    assert actual == expected

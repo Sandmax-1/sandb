@@ -1,5 +1,5 @@
 import json
-from typing import Any, Iterable
+from typing import Any, Sequence
 
 from sandb.tables.metadata import TableMetadata
 
@@ -9,7 +9,7 @@ class TableExistsError(Exception):
 
 
 class RowTypeError(Exception):
-    """Error to raise when trying to insert a row to  table with the wrong dtypes"""
+    """Error to raise when trying to insert a row to table with the wrong dtypes"""
 
     ...
 
@@ -45,7 +45,7 @@ def create(metadata: TableMetadata) -> None:
         json.dump(metadata.model_dump_json(), f)
 
 
-def write(row: Iterable[Any], table: TableMetadata) -> None:
+def write(row: Sequence[Any], table: TableMetadata) -> None:
     """
     Take a row of arbitrary data, ensure it has the correct shape and types,
     then save to file
@@ -58,12 +58,71 @@ def write(row: Iterable[Any], table: TableMetadata) -> None:
     Raises:
         e: _description_
     """
-    try:
-        typed_row = tuple(
-            dtype(row) for dtype, row in zip(table.dtypes, row, strict=True)
-        )
-    except ValueError:
+    if validate_and_cast_row(row, table):
+        with open(table.data_path(), "a") as f:
+            row_string = ", ".join(map(str, row))
+            f.write(row_string + "\n")
+
+    else:
         raise RowTypeError(f"Failed to write row {row} due to type mismatch.", row)
 
-    with open(table.data_path(), "a") as f:
-        f.write(str(typed_row)[1:-1] + "\n")
+
+def validate_and_cast_row(row: Sequence[Any], table: TableMetadata) -> tuple[Any, ...]:
+    """
+    Validate and cast the row's elements to their corresponding
+    types as defined in the table.
+
+    Args:
+        row (Iterable[Any]): The input row to validate and cast.
+        table (TableMetadata): Metadata of the table with the expected types.
+
+    Returns:
+        tuple: The validated and casted row.
+
+    Raises:
+        RowTypeError: If the row's types or length don't match the table.
+    """
+    if len(row) != len(table.dtypes):
+        raise RowTypeError(
+            f"Row length {len(row)} doesn't match expected length {len(table.dtypes)}."
+        )
+
+    try:
+        return tuple(
+            dtype(element) for dtype, element in zip(table.dtypes, row, strict=True)
+        )
+    except ValueError as e:
+        raise RowTypeError(f"Type mismatch for row {row}.") from e
+
+
+def read(
+    column_to_query: str, predicate: Any, table: TableMetadata
+) -> list[tuple[Any]]:
+    """
+    Currently just performs a full table scan reading row by row from the data.csv
+    file pointed to from TableMetadata.
+    Can only perform WHERE column_to_query == predicate. Will add more functionality
+    in the future.
+
+    Args:
+        column_to_query (str): Column to check
+        predicate (Any): value to check column gainst
+        table (TableMetadata): table to scan
+
+    Returns:
+        list[tuple[Any]]: a list of all rows that match the column_to_query == predicate
+    """
+    try:
+        col_position = table.col_names.index(column_to_query)
+    except ValueError as e:
+        raise ValueError(f"{column_to_query} not in {table}") from e
+
+    out: list[tuple[Any, ...]] = []
+    with open(table.data_path(), "r") as f:
+        for line in f.readlines():
+            element_list = line.strip().split(", ")
+            typed_row = validate_and_cast_row(element_list, table)
+            if typed_row[col_position] == predicate:
+                out.append(typed_row)
+
+    return out
