@@ -1,10 +1,16 @@
 import json
-from typing import Any
+from typing import Any, Iterable
 
 from sandb.tables.metadata import TableMetadata
 
 
 class TableExistsError(Exception):
+    ...
+
+
+class RowTypeError(Exception):
+    """Error to raise when trying to insert a row to  table with the wrong dtypes"""
+
     ...
 
 
@@ -39,5 +45,25 @@ def create(metadata: TableMetadata) -> None:
         json.dump(metadata.model_dump_json(), f)
 
 
-def write(row: tuple[Any, ...], table: TableMetadata) -> None:
-    ...
+def write(row: Iterable[Any], table: TableMetadata) -> None:
+    """
+    Take a row of arbitrary data, ensure it has the correct shape and types,
+    then save to file
+
+    Args:
+        row (tuple[Any, ...]): arbitrary tuple which we are trying to save
+                               to the database
+        table (TableMetadata): table metadata for the row we are trying to save.
+
+    Raises:
+        e: _description_
+    """
+    try:
+        typed_row = tuple(
+            dtype(row) for dtype, row in zip(table.dtypes, row, strict=True)
+        )
+    except ValueError:
+        raise RowTypeError(f"Failed to write row {row} due to type mismatch.", row)
+
+    with open(table.data_path(), "a") as f:
+        f.write(str(typed_row)[1:-1] + "\n")

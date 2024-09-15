@@ -1,3 +1,4 @@
+from functools import cached_property
 from pathlib import Path
 from typing import Literal, Mapping, Type, Union, get_args
 
@@ -53,3 +54,13 @@ class TableMetadata(BaseModel):
     columns: tuple[Column, ...]
     location: Path
     indexes: None | tuple[Index, ...] = Field(default=None)
+
+    @cached_property
+    def dtypes(self) -> tuple[Type[VALID_DTYPE], ...]:
+        return tuple(column.dtype for column in self.columns)
+
+    def metadata_path(self) -> Path:
+        return self.location / self.name / "metadata.json"
+
+    def data_path(self) -> Path:
+        return self.location / self.name / "data.csv"

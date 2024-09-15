@@ -3,7 +3,7 @@ import json
 import pytest
 
 from sandb.tables.metadata import TableMetadata
-from sandb.tables.table import TableExistsError, create
+from sandb.tables.table import RowTypeError, TableExistsError, create, write
 
 
 def test_create_happy_path(test_table_metadata: TableMetadata) -> None:
@@ -22,3 +22,52 @@ def test_create_table_folder_already_exists(test_table_metadata: TableMetadata) 
 
     with pytest.raises(TableExistsError):
         create(test_table_metadata)
+
+
+# Helper function to read the data file for verification
+def read_data_file(table: TableMetadata) -> list[str]:
+    with open(table.data_path()) as f:
+        return f.readlines()
+
+
+def test_write_happy_path(test_table_metadata: TableMetadata) -> None:
+    create(test_table_metadata)
+    row = ("John", 30)
+
+    write(row, test_table_metadata)
+
+    data = read_data_file(test_table_metadata)
+    assert len(data) == 1
+    assert data[0].strip() == "'John', 30"
+
+
+# Test for TypeError when passing invalid data type
+def test_write_invalid_type(test_table_metadata: TableMetadata) -> None:
+    row = (
+        "John",
+        "InvalidAge",
+    )
+
+    with pytest.raises(RowTypeError):
+        write(row, test_table_metadata)
+
+
+def test_write_append_rows(test_table_metadata: TableMetadata) -> None:
+    create(test_table_metadata)
+    row1 = ("Alice", 25)
+    row2 = ("Bob", 40)
+
+    write(row1, test_table_metadata)
+    write(row2, test_table_metadata)
+
+    data = read_data_file(test_table_metadata)
+    assert len(data) == 2
+    assert data[0].strip() == "'Alice', 25"
+    assert data[1].strip() == "'Bob', 40"
+
+
+def test_write_incorrect_row_length(test_table_metadata: TableMetadata) -> None:
+    row = ("Alice",)  # Row has only one element but two are expected
+
+    with pytest.raises(RowTypeError):
+        write(row, test_table_metadata)
