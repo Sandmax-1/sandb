@@ -30,6 +30,6 @@ def test_table_metadata(tmp_path_factory: TempPathFactory) -> TableMetadata:
     path = tmp_path_factory.mktemp("tables")
     return TableMetadata(
         name="test_table",
-        columns=(Column(name="col_1", dtype=0), Column(name="col_2", dtype=1)),
+        columns=(Column(name="col_1", dtype=str), Column(name="col_2", dtype=int)),
         location=path,
     )

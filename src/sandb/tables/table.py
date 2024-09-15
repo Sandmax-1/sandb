@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 from sandb.tables.metadata import TableMetadata
 
@@ -36,3 +37,7 @@ def create(metadata: TableMetadata) -> None:
 
     with open(metadata_path, "w") as f:
         json.dump(metadata.model_dump_json(), f)
+
+
+def write(row: tuple[Any, ...], table: TableMetadata) -> None:
+    ...
