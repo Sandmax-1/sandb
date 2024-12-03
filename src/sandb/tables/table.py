@@ -106,7 +106,7 @@ def read(
 
     Args:
         column_to_query (str): Column to check
-        predicate (Any): value to check column gainst
+        predicate (Any): value to check column against
         table (TableMetadata): table to scan
 
     Returns:
