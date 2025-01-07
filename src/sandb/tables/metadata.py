@@ -68,3 +68,10 @@ class TableMetadata(BaseModel):
 
     def data_path(self) -> Path:
         return self.location / self.name / "data.csv"
+
+
+class LSMTreeMetadata(BaseModel):
+    folder_path: Path
+    memtable_max_size: int
+    segment_chunk_size_for_indexing: int
+    primary_key: Column

@@ -1,5 +1,8 @@
+import json
 import logging
 from collections import OrderedDict
+from glob import glob
+from io import TextIOWrapper
 from pathlib import Path
 from typing import Any, Tuple, TypeVar
 
@@ -7,30 +10,74 @@ from numpy import inf
 from sortedcontainers import SortedDict
 
 from sandb.indexes.abc import Comparable, Index
+from sandb.tables.metadata import VALID_DTYPE, LSMTreeMetadata
 
 T = TypeVar("T")
 
 
 class LSMTree(Index):
-    def __init__(
-        self,
-        segment_folder_path: Path,
-        memtable_max_size: int = 1000,
-        segment_chunk_size_for_indexing: int = 100,
-    ):
+    def __init__(self, lsmtree_metadata: LSMTreeMetadata):
         self.memtable: SortedDict[Comparable, Any] = SortedDict()
-        self.memtable_max_size = memtable_max_size
+        self.lsmtree_metadata = lsmtree_metadata
 
-        self.segment_chunk_size_for_indexing = segment_chunk_size_for_indexing
+        self.metadata_file_path = lsmtree_metadata.folder_path / "metadata.txt"
+        self.segment_folder_path = lsmtree_metadata.folder_path / "segments"
+        self.indexes_file_path = lsmtree_metadata.folder_path / "indexes.txt"
+
+        self.primary_key = self.lsmtree_metadata.primary_key
+
         # This is the SStable storage. First value is file path, second value is the
         # sparse index for the SStable. This is ordered such that we can look through
         # newest to oldest segments.
-        self.segments: OrderedDict[Path, SortedDict[Comparable, Any]] = OrderedDict()
+        self.indexes: OrderedDict[Path, SortedDict[VALID_DTYPE, int]]
 
-        self.segment_index = 0
+        if self.metadata_file_path.exists():
+            self.indexes = self.load_indexes_from_file()
 
-        self.segment_folder_path = segment_folder_path
-        self.segment_folder_path.mkdir(exist_ok=True)
+        else:
+            with open(self.metadata_file_path, "w") as f:
+                json.dump(lsmtree_metadata.model_dump_json(), f)
+            self.indexes = OrderedDict()
+            self.segment_folder_path.mkdir()
+
+        self.segment_index = len(self.indexes)
+
+    def load_indexes_from_file(self) -> OrderedDict[Path, SortedDict[VALID_DTYPE, int]]:
+        number_of_segments = len(glob(str(self.segment_folder_path / "*")))
+        with open(self.indexes_file_path, "r") as f:
+            indexes = f.read()
+
+        individual_indexes = indexes.split("\n\n")
+
+        if number_of_segments != len(individual_indexes):
+            raise Exception(
+                "We have an incompatible number of indexes to segment files"
+            )
+
+        split_indexes = [index.split("\n") for index in individual_indexes]
+
+        serialised_indexes: list[SortedDict[VALID_DTYPE, int]] = []
+        for index in split_indexes:
+            serialised_indexes.append(
+                SortedDict(
+                    {
+                        self.primary_key.dtype(row.split(":")[0]): int(
+                            row.split(":")[1]
+                        )
+                        for row in index
+                    }
+                )
+            )
+
+        return OrderedDict(
+            zip(
+                [
+                    self.segment_folder_path / f"segment_{ind}.txt"
+                    for ind in range(number_of_segments)
+                ],
+                serialised_indexes,
+            )
+        )
 
     def read(self, key: Comparable) -> str | None:
         """
@@ -59,7 +106,7 @@ class LSMTree(Index):
 
     def search_segments_on_disk(self, key: Comparable) -> str | None:
         value = ""
-        for filepath, index in self.segments.items():
+        for filepath, index in self.indexes.items():
             floor_offset, ceil_offset = self.get_floor_ceil_of_key_in_index(key, index)
             with open(filepath, "r") as current_segment:
                 current_segment.seek(floor_offset)
@@ -76,29 +123,31 @@ class LSMTree(Index):
         return value
 
     def write(self, key: Comparable, value: Any) -> None:
-        if len(self.memtable) >= self.memtable_max_size:
+        if len(self.memtable) >= self.lsmtree_metadata.memtable_max_size:
             self.flush_memtable_to_disk()
         self.memtable.update({key: value})
 
     def flush_memtable_to_disk(self) -> None:
-        index_counter = self.segment_chunk_size_for_indexing
-        segment_file_name = (
+        index_counter = self.lsmtree_metadata.segment_chunk_size_for_indexing
+        segment_file_path = (
             self.segment_folder_path / f"segment_{self.segment_index}.txt"
         )
         index: SortedDict[Comparable, int] = SortedDict()
 
-        with open(segment_file_name, "a") as f:
+        with open(segment_file_path, "a") as f:
             for key, value in self.memtable.items():
                 if index_counter == 0:
                     offset = f.tell()
                     index.update({key: offset})
-                    index_counter = self.segment_chunk_size_for_indexing
+                    index_counter = (
+                        self.lsmtree_metadata.segment_chunk_size_for_indexing
+                    )
 
                 f.write(f"{key}: {value}\n")
                 index_counter -= 1
 
         self.memtable = SortedDict()
-        self.segments.update({segment_file_name: index})
+        self.indexes.update({segment_file_path: index})
         self.segment_index += 1
 
     def get_floor_ceil_of_key_in_index(
@@ -143,7 +192,7 @@ class LSMTree(Index):
 
 def save_index_to_file(folder_path: Path, index: SortedDict[Comparable, int]) -> None:
     """
-    Saves our indexes which are used to efficiently scan our segments to file.
+    Saves our indexes which are used to efficiently scan our segments on file.
     Currently just uses a simple txt format where each item in the index is stored
     as a str like 'key':'value'. It will then append a newline character so that
     we can determine when one index is finished and the next begins. Currently relies
@@ -185,7 +234,9 @@ def merge_segment_files(
             )
         return int(key_value[0]), key_value[1]
 
-    segment_files = []  # Initialising to avoid possible unbound errors in finally block
+    segment_files: list[
+        TextIOWrapper
+    ] = []  # Initialising to avoid possible unbound errors in finally block
     with open(merged_file_path, "a") as output_file:
         try:
             segment_files = [file.open("r") for file in segment_file_paths]

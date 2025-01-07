@@ -9,6 +9,7 @@ from sortedcontainers import SortedDict
 from sandb.config import ROOT_DIR
 from sandb.indexes.abc import Comparable
 from sandb.indexes.lsm_tree import LSMTree, merge_segment_files, save_index_to_file
+from sandb.tables.metadata import Column, LSMTreeMetadata
 
 
 @pytest.mark.parametrize(  # type: ignore
@@ -31,8 +32,18 @@ def test_get_floor_ceil_of_key_in_index(
     expected_output: tuple[int, int | None],
     test_tree: SortedDict[Comparable, int],
 ) -> None:
-    lsm = LSMTree(ROOT_DIR / "lsm_segments")
-    assert lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
+    with TemporaryDirectory(dir=ROOT_DIR) as tmp:
+        lsm = LSMTree(
+            lsmtree_metadata=LSMTreeMetadata(
+                folder_path=Path(tmp),
+                memtable_max_size=1000,
+                segment_chunk_size_for_indexing=100,
+                primary_key=Column(name="col_1", dtype=int),
+            ),
+        )
+        assert (
+            lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
+        )
 
 
 LIST_OF_NUMS = [
@@ -62,9 +73,12 @@ LIST_OF_NUMS = [
 def test_read_from_db() -> None:
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
         lsmtree = LSMTree(
-            segment_folder_path=ROOT_DIR / "lsm_segments",
-            memtable_max_size=10,
-            segment_chunk_size_for_indexing=3,
+            lsmtree_metadata=LSMTreeMetadata(
+                folder_path=Path(tmp),
+                memtable_max_size=10,
+                segment_chunk_size_for_indexing=3,
+                primary_key=Column(name="col_1", dtype=int),
+            ),
         )
         lsmtree.segment_folder_path = Path(tmp)
         for num in LIST_OF_NUMS:
@@ -182,15 +196,23 @@ def test_write_to_db() -> None:
     # Expect 3 files and a memtable with 25 els. as Dupes are in different segments
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
         lsmtree = LSMTree(
-            segment_folder_path=ROOT_DIR / "lsm_segments",
-            memtable_max_size=25,
-            segment_chunk_size_for_indexing=5,
+            lsmtree_metadata=LSMTreeMetadata(
+                folder_path=Path(tmp),
+                memtable_max_size=25,
+                segment_chunk_size_for_indexing=5,
+                primary_key=Column(name="col_1", dtype=int),
+            ),
         )
-        lsmtree.segment_folder_path = Path(tmp)
         for num in LONGER_LIST_OF_NUMS:
             lsmtree.write(num, num2words(num))
 
-        assert os.listdir(tmp) == ["segment_0.txt", "segment_1.txt", "segment_2.txt"]
+        print(os.listdir(tmp))
+
+        assert os.listdir(Path(tmp) / "segments") == [
+            "segment_0.txt",
+            "segment_1.txt",
+            "segment_2.txt",
+        ]
         assert len(lsmtree.memtable) == 25
 
 
@@ -271,3 +293,7 @@ def test_save_index_to_file() -> None:
         save_index_to_file(Path(tmp), index_to_save)
         with open(Path(tmp) / "index.txt", "r") as f:
             assert f.read() == """a:10\nb:20\nc:30\n\n"""
+
+
+def test_load_indexes_from_file() -> None:
+    pass
