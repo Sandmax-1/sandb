@@ -31,7 +31,7 @@ def test_get_floor_ceil_of_key_in_index(
     expected_output: tuple[int, int | None],
     test_tree: SortedDict[Comparable, int],
 ) -> None:
-    lsm = LSMTree()
+    lsm = LSMTree(ROOT_DIR / "lsm_segments")
     assert lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
 
 
@@ -61,7 +61,11 @@ LIST_OF_NUMS = [
 
 def test_read_from_db() -> None:
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
-        lsmtree = LSMTree(10, 3)
+        lsmtree = LSMTree(
+            segment_folder_path=ROOT_DIR / "lsm_segments",
+            memtable_max_size=10,
+            segment_chunk_size_for_indexing=3,
+        )
         lsmtree.segment_folder_path = Path(tmp)
         for num in LIST_OF_NUMS:
             lsmtree.write(num, num2words(num))
@@ -177,7 +181,11 @@ LONGER_LIST_OF_NUMS = [
 def test_write_to_db() -> None:
     # Expect 3 files and a memtable with 25 els. as Dupes are in different segments
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
-        lsmtree = LSMTree(25, 5)
+        lsmtree = LSMTree(
+            segment_folder_path=ROOT_DIR / "lsm_segments",
+            memtable_max_size=25,
+            segment_chunk_size_for_indexing=5,
+        )
         lsmtree.segment_folder_path = Path(tmp)
         for num in LONGER_LIST_OF_NUMS:
             lsmtree.write(num, num2words(num))
@@ -254,3 +262,7 @@ def test_compact_segment_files(
             actual = list(f.readlines())
 
         assert actual == expected_merged_file_contents
+
+
+def test_save_index_to_file() -> None:
+    pass

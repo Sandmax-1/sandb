@@ -6,7 +6,6 @@ from typing import Any, Tuple, TypeVar
 from numpy import inf
 from sortedcontainers import SortedDict
 
-from sandb.config import ROOT_DIR
 from sandb.indexes.abc import Comparable, Index
 
 T = TypeVar("T")
@@ -14,7 +13,10 @@ T = TypeVar("T")
 
 class LSMTree(Index):
     def __init__(
-        self, memtable_max_size: int = 1000, segment_chunk_size_for_indexing: int = 100
+        self,
+        segment_folder_path: Path,
+        memtable_max_size: int = 1000,
+        segment_chunk_size_for_indexing: int = 100,
     ):
         self.memtable: SortedDict[Comparable, Any] = SortedDict()
         self.memtable_max_size = memtable_max_size
@@ -27,7 +29,7 @@ class LSMTree(Index):
 
         self.segment_index = 0
 
-        self.segment_folder_path = ROOT_DIR / "lsm_segments"
+        self.segment_folder_path = segment_folder_path
         self.segment_folder_path.mkdir(exist_ok=True)
 
     def read(self, key: Comparable) -> str | None:
@@ -112,7 +114,13 @@ class LSMTree(Index):
         q: 300
         z: 400}
         then the boundaries if we try and find key j would be a and h.
+
+        Returns:
+            tuple[int, int | None] where the first element is the start of the area to
+            search on file for our value and the second element is the end, or
+            None if key might be in the last segment.
         """
+        # TODO: update this to use binary search
         floor = 0
         ceil = None
         prev_value = 0
@@ -131,6 +139,31 @@ class LSMTree(Index):
             floor = value
 
         return floor, ceil
+
+
+def save_index_to_file(folder_path: Path, index: SortedDict[Comparable, int]) -> None:
+    """
+    Saves our indexes which are used to efficiently scan our segments to file.
+    Currently just uses a simple txt format where each item in the index is stored
+    as a str like 'key':'value'. It will then append a newline character so that
+    we can determine when one index is finished and the next begins. Currently relies
+    on the order the indexes are saved to disk which correspond to the order of the
+    segment files.
+
+    Args:
+        index (SortedDict[Comparable, int]): index to save to file
+    """
+
+    filepath = folder_path / "index.txt"
+
+    if not filepath.exists():
+        filepath.touch()
+
+    with open(filepath, "a") as f:
+        for key, value in index.items():
+            f.write(str(key) + ":" + str(value))
+
+        f.write("\n")
 
 
 def merge_segment_files(
