@@ -8,7 +8,7 @@ from sortedcontainers import SortedDict
 
 from sandb.config import ROOT_DIR
 from sandb.indexes.abc import Comparable
-from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
+from sandb.indexes.lsm_tree import LSMTree, merge_segment_files, save_index_to_file
 
 
 @pytest.mark.parametrize(  # type: ignore
@@ -265,4 +265,9 @@ def test_compact_segment_files(
 
 
 def test_save_index_to_file() -> None:
-    pass
+    index_to_save = SortedDict({"a": 10, "b": 20, "c": 30})
+
+    with TemporaryDirectory() as tmp:
+        save_index_to_file(Path(tmp), index_to_save)
+        with open(Path(tmp) / "index.txt", "r") as f:
+            assert f.read() == """a:10\nb:20\nc:30\n\n"""

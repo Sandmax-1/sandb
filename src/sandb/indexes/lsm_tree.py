@@ -161,7 +161,7 @@ def save_index_to_file(folder_path: Path, index: SortedDict[Comparable, int]) ->
 
     with open(filepath, "a") as f:
         for key, value in index.items():
-            f.write(str(key) + ":" + str(value))
+            f.write(str(key) + ":" + str(value) + "\n")
 
         f.write("\n")
 
