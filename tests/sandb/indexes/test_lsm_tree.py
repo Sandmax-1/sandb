@@ -1,13 +1,14 @@
 import os
+from collections import OrderedDict
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock, patch
 
 import pytest
 from num2words import num2words
 from sortedcontainers import SortedDict
 
-from sandb.config import ROOT_DIR
-from sandb.indexes.abc import Comparable
+from sandb.config import ROOT_DIR, VALID_DTYPE
 from sandb.indexes.lsm_tree import LSMTree, merge_segment_files, save_index_to_file
 from sandb.tables.metadata import Column, LSMTreeMetadata
 
@@ -30,7 +31,7 @@ from sandb.tables.metadata import Column, LSMTreeMetadata
 def test_get_floor_ceil_of_key_in_index(
     input_key: str,
     expected_output: tuple[int, int | None],
-    test_tree: SortedDict[Comparable, int],
+    test_tree: dict[VALID_DTYPE, int],
 ) -> None:
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
         lsm = LSMTree(
@@ -42,7 +43,7 @@ def test_get_floor_ceil_of_key_in_index(
             ),
         )
         assert (
-            lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
+            lsm._get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
         )
 
 
@@ -295,5 +296,34 @@ def test_save_index_to_file() -> None:
             assert f.read() == """a:10\nb:20\nc:30\n\n"""
 
 
-def test_load_indexes_from_file() -> None:
-    pass
+@patch("sandb.indexes.lsm_tree.glob")
+def test_load_indexes_from_file(mock_glob: MagicMock) -> None:
+    mock_glob.return_value = [1, 2]
+    index_1 = SortedDict({"a": 10, "b": 20, "c": 30})
+    index_2 = SortedDict({"d": 10, "e": 20, "f": 30})
+
+    with TemporaryDirectory() as tmp:
+        save_index_to_file(Path(tmp), index_1)
+        save_index_to_file(Path(tmp), index_2)
+
+        # get lsmtree to load from file rather
+        # than creating everything from scratch
+        (Path(tmp) / "metadata.json").touch()
+
+        tree = LSMTree(
+            LSMTreeMetadata(
+                folder_path=Path(tmp),
+                memtable_max_size=100,
+                segment_chunk_size_for_indexing=10,
+                primary_key=Column(name="col_1", dtype=str),
+            )
+        )
+
+        print(tree.indexes)
+
+        assert tree.indexes == OrderedDict(
+            [
+                (Path(tmp) / "segments/segment_0.txt", index_1),
+                (Path(tmp) / "segments/segment_1.txt", index_2),
+            ]
+        )
