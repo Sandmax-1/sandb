@@ -319,8 +319,6 @@ def test_load_indexes_from_file(mock_glob: MagicMock) -> None:
             )
         )
 
-        print(tree.indexes)
-
         assert tree.indexes == OrderedDict(
             [
                 (Path(tmp) / "segments/segment_0.txt", index_1),
