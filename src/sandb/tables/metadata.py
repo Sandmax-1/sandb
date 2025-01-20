@@ -71,3 +71,15 @@ class LSMTreeMetadata(BaseModel):
     def load_from_file(cls, folder_path: Path) -> "LSMTreeMetadata":
         with open(folder_path / "metadata.json", "r") as f:
             return cls.model_validate_json(json.load(f))
+
+    @property
+    def metadata_file_path(self) -> Path:
+        return self.folder_path / "metadata.json"
+
+    @property
+    def segment_folder_path(self) -> Path:
+        return self.folder_path / "segments"
+
+    @property
+    def index_file_path(self) -> Path:
+        return self.folder_path / "index.txt"

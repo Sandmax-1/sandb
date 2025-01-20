@@ -18,25 +18,21 @@ class LSMTree(Index):
     def __init__(self, lsmtree_metadata: LSMTreeMetadata):
         self.memtable: dict[VALID_DTYPE, Any] = SortedDict()
 
-        self.lsmtree_metadata = lsmtree_metadata
-
-        self.metadata_file_path = lsmtree_metadata.folder_path / "metadata.json"
-        self.segment_folder_path = lsmtree_metadata.folder_path / "segments"
-        self.indexes_file_path = lsmtree_metadata.folder_path / "index.txt"
+        self.metadata = lsmtree_metadata
 
         # This is the SStable storage. First value is file path, second value is the
         # sparse index for the SStable. This is ordered such that we can look through
         # newest to oldest segments.
         self.indexes: OrderedDict[Path, dict[VALID_DTYPE, int]]
 
-        if self.metadata_file_path.exists():
+        if self.metadata.metadata_file_path.exists():
             self.indexes = self._load_indexes_from_file()
 
         else:
-            with open(self.metadata_file_path, "w") as f:
-                json.dump(lsmtree_metadata.model_dump_json(), f)
+            with open(self.metadata.metadata_file_path, "w") as f:
+                json.dump(self.metadata.model_dump_json(), f)
             self.indexes = OrderedDict()
-            self.segment_folder_path.mkdir()
+            self.metadata.segment_folder_path.mkdir()
 
         self.segment_index = len(self.indexes)
 
@@ -66,13 +62,13 @@ class LSMTree(Index):
         return value
 
     def write(self, key: VALID_DTYPE, value: Any) -> None:
-        if len(self.memtable) >= self.lsmtree_metadata.memtable_max_size:
+        if len(self.memtable) >= self.metadata.memtable_max_size:
             self._flush_memtable_to_disk()
         self.memtable.update({key: value})
 
     def _load_indexes_from_file(self) -> OrderedDict[Path, dict[VALID_DTYPE, int]]:
-        number_of_segments = len(glob(str(self.segment_folder_path / "*")))
-        with open(self.indexes_file_path, "r") as f:
+        number_of_segments = len(glob(str(self.metadata.segment_folder_path / "*")))
+        with open(self.metadata.index_file_path, "r") as f:
             indexes = f.read()
 
         individual_indexes = indexes.split("\n\n")[:-1]
@@ -89,7 +85,7 @@ class LSMTree(Index):
             serialised_indexes.append(
                 SortedDict(
                     {
-                        self.lsmtree_metadata.primary_key.dtype(row.split(":")[0]): int(
+                        self.metadata.primary_key.dtype(row.split(":")[0]): int(
                             row.split(":")[1]
                         )
                         for row in index
@@ -100,7 +96,7 @@ class LSMTree(Index):
         return OrderedDict(
             zip(
                 [
-                    self.segment_folder_path / f"segment_{ind}.txt"
+                    self.metadata.segment_folder_path / f"segment_{ind}.txt"
                     for ind in range(number_of_segments)
                 ],
                 serialised_indexes,
@@ -126,9 +122,9 @@ class LSMTree(Index):
         return value
 
     def _flush_memtable_to_disk(self) -> None:
-        index_counter = self.lsmtree_metadata.segment_chunk_size_for_indexing
+        index_counter = self.metadata.segment_chunk_size_for_indexing
         segment_file_path = (
-            self.segment_folder_path / f"segment_{self.segment_index}.txt"
+            self.metadata.segment_folder_path / f"segment_{self.segment_index}.txt"
         )
         index: dict[VALID_DTYPE, int] = SortedDict()
 
@@ -137,9 +133,7 @@ class LSMTree(Index):
                 if index_counter == 0:
                     offset = f.tell()
                     index.update({key: offset})
-                    index_counter = (
-                        self.lsmtree_metadata.segment_chunk_size_for_indexing
-                    )
+                    index_counter = self.metadata.segment_chunk_size_for_indexing
 
                 f.write(f"{key}: {value}\n")
                 index_counter -= 1
