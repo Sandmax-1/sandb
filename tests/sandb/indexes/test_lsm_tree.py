@@ -1,14 +1,16 @@
 import os
+from collections import OrderedDict
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock, patch
 
 import pytest
 from num2words import num2words
 from sortedcontainers import SortedDict
 
-from sandb.config import ROOT_DIR
-from sandb.indexes.abc import Comparable
-from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
+from sandb.config import ROOT_DIR, VALID_DTYPE
+from sandb.indexes.lsm_tree import LSMTree, merge_segment_files, save_index_to_file
+from sandb.tables.metadata import Column, LSMTreeMetadata
 
 
 @pytest.mark.parametrize(  # type: ignore
@@ -29,10 +31,20 @@ from sandb.indexes.lsm_tree import LSMTree, merge_segment_files
 def test_get_floor_ceil_of_key_in_index(
     input_key: str,
     expected_output: tuple[int, int | None],
-    test_tree: SortedDict[Comparable, int],
+    test_tree: dict[VALID_DTYPE, int],
 ) -> None:
-    lsm = LSMTree()
-    assert lsm.get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
+    with TemporaryDirectory(dir=ROOT_DIR) as tmp:
+        lsm = LSMTree(
+            lsmtree_metadata=LSMTreeMetadata(
+                folder_path=Path(tmp),
+                memtable_max_size=1000,
+                segment_chunk_size_for_indexing=100,
+                primary_key=Column(name="col_1", dtype=int),
+            ),
+        )
+        assert (
+            lsm._get_floor_ceil_of_key_in_index(input_key, test_tree) == expected_output
+        )
 
 
 LIST_OF_NUMS = [
@@ -61,8 +73,14 @@ LIST_OF_NUMS = [
 
 def test_read_from_db() -> None:
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
-        lsmtree = LSMTree(10, 3)
-        lsmtree.segment_folder_path = Path(tmp)
+        lsmtree = LSMTree(
+            lsmtree_metadata=LSMTreeMetadata(
+                folder_path=Path(tmp),
+                memtable_max_size=10,
+                segment_chunk_size_for_indexing=3,
+                primary_key=Column(name="col_1", dtype=int),
+            ),
+        )
         for num in LIST_OF_NUMS:
             lsmtree.write(num, num2words(num))
 
@@ -177,12 +195,22 @@ LONGER_LIST_OF_NUMS = [
 def test_write_to_db() -> None:
     # Expect 3 files and a memtable with 25 els. as Dupes are in different segments
     with TemporaryDirectory(dir=ROOT_DIR) as tmp:
-        lsmtree = LSMTree(25, 5)
-        lsmtree.segment_folder_path = Path(tmp)
+        lsmtree = LSMTree(
+            lsmtree_metadata=LSMTreeMetadata(
+                folder_path=Path(tmp),
+                memtable_max_size=25,
+                segment_chunk_size_for_indexing=5,
+                primary_key=Column(name="col_1", dtype=int),
+            ),
+        )
         for num in LONGER_LIST_OF_NUMS:
             lsmtree.write(num, num2words(num))
 
-        assert os.listdir(tmp) == ["segment_0.txt", "segment_1.txt", "segment_2.txt"]
+        assert sorted(os.listdir(Path(tmp) / "segments")) == [
+            "segment_0.txt",
+            "segment_1.txt",
+            "segment_2.txt",
+        ]
         assert len(lsmtree.memtable) == 25
 
 
@@ -221,7 +249,7 @@ def test_write_to_db() -> None:
             ],
         ),
         (
-            [[1, 2, 3], []],
+            [[1, 2, 3], []],  # type: ignore[unused-ignore]
             [
                 "1: one_1\n",
                 "2: two_1\n",
@@ -254,3 +282,43 @@ def test_compact_segment_files(
             actual = list(f.readlines())
 
         assert actual == expected_merged_file_contents
+
+
+def test_save_index_to_file() -> None:
+    index_to_save = SortedDict({"a": 10, "b": 20, "c": 30})
+
+    with TemporaryDirectory() as tmp:
+        save_index_to_file(Path(tmp), index_to_save)
+        with open(Path(tmp) / "index.txt", "r") as f:
+            assert f.read() == """a:10\nb:20\nc:30\n\n"""
+
+
+@patch("sandb.indexes.lsm_tree.glob")
+def test_load_indexes_from_file(mock_glob: MagicMock) -> None:
+    mock_glob.return_value = [1, 2]
+    index_1 = SortedDict({"a": 10, "b": 20, "c": 30})
+    index_2 = SortedDict({"d": 10, "e": 20, "f": 30})
+
+    with TemporaryDirectory() as tmp:
+        save_index_to_file(Path(tmp), index_1)
+        save_index_to_file(Path(tmp), index_2)
+
+        # get lsmtree to load from file rather
+        # than creating everything from scratch
+        (Path(tmp) / "metadata.json").touch()
+
+        tree = LSMTree(
+            LSMTreeMetadata(
+                folder_path=Path(tmp),
+                memtable_max_size=100,
+                segment_chunk_size_for_indexing=10,
+                primary_key=Column(name="col_1", dtype=str),
+            )
+        )
+
+        assert tree.indexes == OrderedDict(
+            [
+                (Path(tmp) / "segments/segment_0.txt", index_1),
+                (Path(tmp) / "segments/segment_1.txt", index_2),
+            ]
+        )

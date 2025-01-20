@@ -1,21 +1,12 @@
+import json
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Mapping, Type, Union, get_args
+from typing import Type
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+from sandb.config import VALID_DTYPE, VALID_DTYPE_ALIAS, VALID_DTYPE_MAPPING
 from sandb.indexes.abc import Index
-
-VALID_DTYPE_ALIAS = Literal[0, 1]
-VALID_DTYPE = Union[str, int]
-
-VALID_DTYPE_MAPPING: Mapping[VALID_DTYPE, VALID_DTYPE_ALIAS] = dict(
-    zip(get_args(VALID_DTYPE), get_args(VALID_DTYPE_ALIAS))
-)
-
-REVERSE_DTYPE_MAPPING: Mapping[VALID_DTYPE_ALIAS, VALID_DTYPE] = {
-    v: k for k, v in VALID_DTYPE_MAPPING.items()
-}
 
 
 class Column(BaseModel):
@@ -68,3 +59,27 @@ class TableMetadata(BaseModel):
 
     def data_path(self) -> Path:
         return self.location / self.name / "data.csv"
+
+
+class LSMTreeMetadata(BaseModel):
+    folder_path: Path
+    memtable_max_size: int
+    segment_chunk_size_for_indexing: int
+    primary_key: Column
+
+    @classmethod
+    def load_from_file(cls, folder_path: Path) -> "LSMTreeMetadata":
+        with open(folder_path / "metadata.json", "r") as f:
+            return cls.model_validate_json(json.load(f))
+
+    @property
+    def metadata_file_path(self) -> Path:
+        return self.folder_path / "metadata.json"
+
+    @property
+    def segment_folder_path(self) -> Path:
+        return self.folder_path / "segments"
+
+    @property
+    def index_file_path(self) -> Path:
+        return self.folder_path / "index.txt"
