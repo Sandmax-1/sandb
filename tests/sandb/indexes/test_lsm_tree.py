@@ -250,7 +250,7 @@ def test_write_to_db() -> None:
             ],
         ),
         (
-            [[1, 2, 3], []],  # type: ignore
+            [[1, 2, 3], []],  # type: ignore[unused-ignore]
             [
                 "1: one_1\n",
                 "2: two_1\n",
