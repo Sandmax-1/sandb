@@ -207,9 +207,7 @@ def test_write_to_db() -> None:
         for num in LONGER_LIST_OF_NUMS:
             lsmtree.write(num, num2words(num))
 
-        print(os.listdir(tmp))
-
-        assert os.listdir(Path(tmp) / "segments") == [
+        assert sorted(os.listdir(Path(tmp) / "segments")) == [
             "segment_0.txt",
             "segment_1.txt",
             "segment_2.txt",
@@ -252,7 +250,7 @@ def test_write_to_db() -> None:
             ],
         ),
         (
-            [[1, 2, 3], []],
+            [[1, 2, 3], []],  # type: ignore
             [
                 "1: one_1\n",
                 "2: two_1\n",
