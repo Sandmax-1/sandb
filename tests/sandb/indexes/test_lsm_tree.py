@@ -81,7 +81,6 @@ def test_read_from_db() -> None:
                 primary_key=Column(name="col_1", dtype=int),
             ),
         )
-        lsmtree.segment_folder_path = Path(tmp)
         for num in LIST_OF_NUMS:
             lsmtree.write(num, num2words(num))
 
