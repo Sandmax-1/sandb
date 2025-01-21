@@ -3,6 +3,7 @@ from pytest import TempPathFactory
 from sortedcontainers import SortedDict
 
 from sandb.tables.metadata import Column, TableMetadata
+from sandb.tables.table import Table
 
 
 @pytest.fixture  # type: ignore
@@ -26,10 +27,12 @@ def test_tree() -> SortedDict[str, int]:
 
 
 @pytest.fixture  # type: ignore
-def test_table_metadata(tmp_path_factory: TempPathFactory) -> TableMetadata:
+def test_table(tmp_path_factory: TempPathFactory) -> Table:
     path = tmp_path_factory.mktemp("tables")
-    return TableMetadata(
-        name="test_table",
-        columns=(Column(name="col_1", dtype=str), Column(name="col_2", dtype=int)),
-        location=path,
+    return Table(
+        TableMetadata(
+            name="test_table",
+            columns=(Column(name="col_1", dtype=str), Column(name="col_2", dtype=int)),
+            location=path,
+        )
     )
