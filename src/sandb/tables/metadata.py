@@ -54,9 +54,11 @@ class TableMetadata(BaseModel):
     def col_names(self) -> tuple[str, ...]:
         return tuple(column.name for column in self.columns)
 
+    @property
     def metadata_path(self) -> Path:
         return self.location / self.name / "metadata.json"
 
+    @property
     def data_path(self) -> Path:
         return self.location / self.name / "data.csv"
 

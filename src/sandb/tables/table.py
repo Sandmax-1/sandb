@@ -32,16 +32,14 @@ def create(metadata: TableMetadata) -> None:
                           i.e. a folder of metadata.name already exists.
     """
     table_path = metadata.location / metadata.name
-    metadata_path = table_path / "metadata.json"
-    data_path = table_path / "data.csv"
 
     if table_path.exists():
         raise TableExistsError(f"Table already exists at location: {metadata.location}")
 
     table_path.mkdir()
-    data_path.touch()
+    metadata.data_path.touch()
 
-    with open(metadata_path, "w") as f:
+    with open(metadata.metadata_path, "w") as f:
         json.dump(metadata.model_dump_json(), f)
 
 
@@ -59,7 +57,7 @@ def write(row: Sequence[Any], table: TableMetadata) -> None:
         e: _description_
     """
     if validate_and_cast_row(row, table):
-        with open(table.data_path(), "a") as f:
+        with open(table.data_path, "a") as f:
             row_string = ", ".join(map(str, row))
             f.write(row_string + "\n")
 
@@ -118,7 +116,7 @@ def read(
         raise ValueError(f"{column_to_query} not in {table}") from e
 
     out: list[tuple[Any, ...]] = []
-    with open(table.data_path(), "r") as f:
+    with open(table.data_path, "r") as f:
         for line in f.readlines():
             element_list = line.strip().split(", ")
             typed_row = validate_and_cast_row(element_list, table)

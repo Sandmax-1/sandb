@@ -27,7 +27,7 @@ def test_create_table_folder_already_exists(test_table_metadata: TableMetadata) 
 
 # Helper function to read the data file for verification
 def read_data_file(table: TableMetadata) -> list[str]:
-    with open(table.data_path()) as f:
+    with open(table.data_path) as f:
         return f.readlines()
 
 
