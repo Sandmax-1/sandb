@@ -129,3 +129,12 @@ class Table:
                     out.append(typed_row)
 
         return out
+
+    # def join(self, column_to_join_on: str, table_to_join_to: "Table"):
+    #     column_index_left = self.metadata.col_names.index(column_to_join_on)
+    #     column_index_right = table_to_join_to.metadata.col_names.index(
+    #         column_to_join_on
+    #     )
+
+    #     left_data = self.read(column_to_join_on)
+    #     right_data = table_to_join_to.read(column_to_join_on)
