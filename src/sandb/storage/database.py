@@ -27,11 +27,11 @@ class Database:
             file_path,
             str(version_str),
             page_size_kb,
-            2 * INT_SIZE_IN_BYTES + version_str_len,
+            (2 * INT_SIZE_IN_BYTES) + version_str_len,
         )
 
     def to_binary(self) -> None:
-        with open(self.file_path, "wb") as f:
+        with open(self.file_path, "ab") as f:
             f.write(pack("<i", len(self.version)))
             f.write(
                 pack(

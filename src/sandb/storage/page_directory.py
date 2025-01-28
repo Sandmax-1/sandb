@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
@@ -31,7 +32,13 @@ class PageDirectoryHeader:
     page_pointers: list[PagePointer]
 
     def to_binary(self, file_path: Path, directory_start_offset: int) -> None:
-        with open(file_path, "wb") as f:
+        # TODO: For some reason I have to use 'ab' here not 'wb'
+        #       I think it's something to do with bnary file endings,
+        #       but I would need to investigate further.
+        #       I think this is fine for now as we're only going to be using
+        #       to_binary when there is nothing else at the end of the file
+        #       so we can append no problem.
+        with open(file_path, "ab") as f:
             f.seek(directory_start_offset)
             f.write(
                 pack(
@@ -45,10 +52,11 @@ class PageDirectoryHeader:
 
             f.write(
                 pack(
-                    "<" + "ii" * len(self.page_pointers),
+                    "<" + f"{len(self.page_pointers) * 2}i",
                     *chain.from_iterable(self.page_pointers),
                 )
             )
+        print(f"size after page directory: {os.path.getsize(file_path)}")
 
     @classmethod
     def from_binary(
@@ -64,7 +72,8 @@ class PageDirectoryHeader:
             ) = unpack("<iiii", f.read(4 * INT_SIZE_IN_BYTES))
 
             page_pointers_raw = unpack(
-                "<" + "ii" * len_page_pointers, f.read(8 * len_page_pointers)
+                "<" + f"{len_page_pointers * 2}i",
+                f.read(2 * INT_SIZE_IN_BYTES * len_page_pointers),
             )
             page_pointers = [
                 PagePointer(
