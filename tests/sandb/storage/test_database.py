@@ -12,7 +12,11 @@ def test_to_binary() -> None:
         file_path.touch()
 
         database = Database(
-            file_path, "v0.0.1", 4, 6 * CHAR_SIZE_IN_BYTES + 2 * INT_SIZE_IN_BYTES
+            file_path=file_path,
+            version="v0.0.1",
+            page_size_bytes=1000,
+            page_directory_size_bytes=100,
+            page_directory_start=6 * CHAR_SIZE_IN_BYTES + 3 * INT_SIZE_IN_BYTES,
         )
 
         database.to_binary()
@@ -26,13 +30,19 @@ def test_database_page_directory_cohesion() -> None:
         file_path.touch()
 
         database = Database(
-            file_path, "v0.0.1", 4, 6 * CHAR_SIZE_IN_BYTES + 2 * INT_SIZE_IN_BYTES
+            file_path=file_path,
+            version="v0.0.1",
+            page_size_bytes=1000,
+            page_directory_size_bytes=100,
+            page_directory_start=6 * CHAR_SIZE_IN_BYTES + 3 * INT_SIZE_IN_BYTES,
         )
 
         database.to_binary()
 
         page = PageDirectoryHeader(1, 2, 3, [PagePointer(1, 2), PagePointer(3, 4)])
 
-        page.to_binary(file_path, database.page_directory_start)
+        page.to_binary(
+            file_path, database.page_directory_start, database.page_directory_size_bytes
+        )
 
         assert Database.from_binary(file_path).page_directory == page

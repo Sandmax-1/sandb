@@ -1,11 +1,10 @@
-import os
 from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
 from struct import pack, unpack
 from typing import Iterable, Iterator
 
-from sandb.storage.constants import INT_SIZE_IN_BYTES
+from sandb.storage.constants import CHAR_SIZE_IN_BYTES, INT_SIZE_IN_BYTES
 
 
 @dataclass
@@ -31,7 +30,12 @@ class PageDirectoryHeader:
     directory_size: int
     page_pointers: list[PagePointer]
 
-    def to_binary(self, file_path: Path, directory_start_offset: int) -> None:
+    def to_binary(
+        self,
+        file_path: Path,
+        directory_start_offset: int,
+        page_directory_size_bytes: int,
+    ) -> None:
         # TODO: For some reason I have to use 'ab' here not 'wb'
         #       I think it's something to do with bnary file endings,
         #       but I would need to investigate further.
@@ -53,10 +57,17 @@ class PageDirectoryHeader:
             f.write(
                 pack(
                     "<" + f"{len(self.page_pointers) * 2}i",
-                    *chain.from_iterable(self.page_pointers),
+                    *chain(*self.page_pointers),
                 )
             )
-        print(f"size after page directory: {os.path.getsize(file_path)}")
+            page_directory_end_from_current_pos_offset = (
+                page_directory_size_bytes
+                - 4 * INT_SIZE_IN_BYTES  # noqa
+                - (len(self.page_pointers) * 2 * CHAR_SIZE_IN_BYTES)  # noqa
+                - 1  # noqa
+            )
+            f.seek(page_directory_end_from_current_pos_offset)
+            f.write(b"\0")
 
     @classmethod
     def from_binary(
