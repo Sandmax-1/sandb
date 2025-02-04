@@ -81,9 +81,13 @@ class SlottedPageHeader:
                 for slot_ind in range(0, 3 * len_slots, 3)
             ]
 
+            records_data = f.read(sum(slot.record_length for slot in slots))
+            offset = 0
             records: list[bytes] = []
-            for _, _, record_length in slots:
-                records.append(f.read(record_length))
+
+            for slot in slots:
+                records.append(records_data[offset : offset + slot.record_length])
+                offset += slot.record_length
 
             return SlottedPageHeader(
                 page_id, free_space_start, free_space_end, slots, records
