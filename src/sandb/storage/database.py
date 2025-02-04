@@ -48,6 +48,6 @@ class Database:
 
     @cached_property
     def page_directory(self) -> PageDirectoryHeader:
-        return PageDirectoryHeader.from_binary(
-            self.file_path, self.page_directory_start
+        return PageDirectoryHeader.from_file(
+            self.file_path, self.page_directory_start, self.page_directory_size_bytes
         )
