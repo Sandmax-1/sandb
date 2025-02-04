@@ -30,6 +30,7 @@ class SlottedPageHeader:
     free_space_start: int
     free_space_end: int
     slots: list[Slot]
+    records: list[bytes]
     # checksum: int | None  # TODO implement this later
     # TODO: Should I include all my records here once loaded into memory?
     #       Or retrieve from disk using the pointers?
@@ -80,4 +81,10 @@ class SlottedPageHeader:
                 for slot_ind in range(0, 3 * len_slots, 3)
             ]
 
-            return SlottedPageHeader(page_id, free_space_start, free_space_end, slots)
+            records: list[bytes] = []
+            for _, _, record_length in slots:
+                records.append(f.read(record_length))
+
+            return SlottedPageHeader(
+                page_id, free_space_start, free_space_end, slots, records
+            )
