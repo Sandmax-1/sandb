@@ -5,7 +5,7 @@ from sandb.storage.database import Database
 from sandb.storage.page_directory import PageDirectoryHeader, PagePointer
 
 
-def test_to_binary() -> None:
+def test_to_bytes() -> None:
     database = Database(
         file_path=Path("abc"),
         version="v0.0.1",
