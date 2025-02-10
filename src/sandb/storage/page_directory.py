@@ -9,28 +9,52 @@ from sandb.storage.constants import INT_SIZE_IN_BYTES
 
 @dataclass
 class PagePointer(Iterable[int]):
+    """
+    Represents a pointer to a page with its ID and start position.
+
+    Attributes:
+        page_id (int): Identifier for the page.
+        page_start (int): Byte offset where the page starts.
+    """
+
     page_id: int
     page_start: int
 
     def __iter__(self) -> Iterator[int]:
         """
-        Doing this such that we can encode to bytes easier in
-        PageDirectoryHeader.to_binary. Shouldn't really be used otherwise.
+        Allows the PagePointer to be iterated over as a tuple (page_id, page_start).
+        This facilitates encoding to bytes in PageDirectoryHeader.to_bytes.
 
         Yields:
-            Iterator[int]: page_id, then page_start
+            int: page_id, then page_start.
         """
         yield from (self.page_id, self.page_start)
 
 
 @dataclass
 class PageDirectoryHeader:
+    """
+    Represents the header for a page directory, containing metadata and page pointers.
+
+    Attributes:
+        page_directory_id (int): Identifier for the page directory.
+        free_space_start (int): Byte offset where free space starts.
+        directory_size (int): Size of the directory in bytes.
+        page_pointers (list[PagePointer]): List of pointers to pages.
+    """
+
     page_directory_id: int
     free_space_start: int
     directory_size: int
     page_pointers: list[PagePointer]
 
     def to_bytes(self) -> bytes:
+        """
+        Serializes the PageDirectoryHeader into a byte string.
+
+        Returns:
+            bytes: The byte representation of the page directory header.
+        """
         byte_str = pack(
             f"<iiii{len(self.page_pointers) * 2}i",
             self.page_directory_id,
@@ -44,6 +68,15 @@ class PageDirectoryHeader:
 
     @classmethod
     def from_bytes(cls, byte_str: bytes) -> "PageDirectoryHeader":
+        """
+        Deserializes a byte string into a PageDirectoryHeader instance.
+
+        Args:
+            byte_str (bytes): Byte string representing the page directory header.
+
+        Returns:
+            PageDirectoryHeader: A new PageDirectoryHeader instance.
+        """
         offset = 0
         (
             page_directory_id,
@@ -73,6 +106,18 @@ class PageDirectoryHeader:
     def from_file(
         cls, file_path: Path, page_directory_offset: int, page_directory_size_bytes: int
     ) -> "PageDirectoryHeader":
+        """
+        Reads a PageDirectoryHeader from a file.
+
+        Args:
+            file_path (Path): Path to the file containing the page directory header.
+            page_directory_offset (int): Offset where the page directory starts.
+            page_directory_size_bytes (int): Size of the page directory in bytes.
+
+        Returns:
+            PageDirectoryHeader: A new PageDirectoryHeader instance populated from
+                                 the file.
+        """
         with open(file_path, "br") as f:
             f.seek(page_directory_offset)
             return PageDirectoryHeader.from_bytes(f.read(page_directory_size_bytes))

@@ -8,23 +8,32 @@ from sandb.storage.constants import INT_SIZE_IN_BYTES
 
 @dataclass
 class Slot(Iterable[int]):
+    """
+    Represents a slot within a slotted page.
+    Each slot contains a record ID, a pointer to the record's location,
+    and the record's length.
+    """
+
     record_id: int
     record_pointer: int
     record_length: int
 
     def __iter__(self) -> Iterator[int]:
         """
-        Doing this such that we can encode to bytes easier in
-        PageDirectoryHeader.to_binary. Shouldn't really be used otherwise.
+        Enables iteration over slot attributes to facilitate serialization.
 
         Yields:
-            Iterator[int]: record_id, then record_pointer, then record_length
+            Iterator[int]: record_id, record_pointer, record_length
         """
         yield from (self.record_id, self.record_pointer, self.record_length)
 
 
 @dataclass
 class SlottedPageHeader:
+    """
+    Represents the header of a slotted page, including metadata and slot directory.
+    """
+
     page_id: int
     free_space_start: int
     free_space_end: int
@@ -35,6 +44,12 @@ class SlottedPageHeader:
     #       Or retrieve from disk using the pointers?
 
     def to_bytes(self) -> bytes:
+        """
+        Serializes the SlottedPageHeader to a byte string.
+
+        Returns:
+            bytes: Serialized representation of the header and its slots.
+        """
         byte_str = pack(
             "<iiii",
             self.page_id,
@@ -57,6 +72,15 @@ class SlottedPageHeader:
 
     @classmethod
     def from_bytes(cls, byte_str: bytes) -> "SlottedPageHeader":
+        """
+        Deserializes a byte string into a SlottedPageHeader instance.
+
+        Args:
+            byte_str (bytes): Serialized byte representation of a SlottedPageHeader.
+
+        Returns:
+            SlottedPageHeader: The deserialized header object.
+        """
         offset = 0
         (
             page_id,

@@ -16,6 +16,17 @@ REVERSED_VALID_DTYPES_MAPPING: dict[ValidDTypes, int] = {
 
 @dataclass
 class SchemaRecord:
+    """
+    Represents a schema record containing table metadata, including column names
+    and data types.
+
+    Attributes:
+        table_id (int): Unique identifier for the table.
+        table_name (str): Name of the table.
+        dtypes (list[ValidDTypeAliases]): List of data type aliases for each column.
+        col_names (list[str]): List of column names in the table.
+    """
+
     table_id: int
     table_name: str
     dtypes: list[
@@ -24,6 +35,12 @@ class SchemaRecord:
     col_names: list[str]
 
     def to_bytes(self) -> bytes:
+        """
+        Serializes the SchemaRecord instance into a bytes representation.
+
+        Returns:
+            bytes: Serialized binary representation of the schema record.
+        """
         byte_str = pack(
             f"<iii{len(self.table_name)}s{len(self.dtypes)}i",
             self.table_id,
@@ -46,6 +63,15 @@ class SchemaRecord:
 
     @classmethod
     def from_bytes(cls, byte_str: bytes) -> "SchemaRecord":
+        """
+        Deserializes a byte string into a SchemaRecord instance.
+
+        Args:
+            byte_str (bytes): The binary data representing a serialized schema record.
+
+        Returns:
+            SchemaRecord: The deserialized schema record object.
+        """
         offset = 0
         table_id, num_cols, table_name_length = unpack_from("<iii", byte_str, offset)
         offset += 12
