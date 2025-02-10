@@ -36,10 +36,10 @@ jobs:
       run: | 
         pre-commit run --all-files
         
-    - name: Test with pytest
+    - name: Unit tests
       run: |
-        pytest --cov=sandb --cov-report xml:coverage.xml 
-
+        pytest tests/unit --cov=sandb --cov-report xml:coverage.xml 
+    
     - name: Get Cover 
       uses: orgoro/coverage@v3.2
       with:
@@ -47,3 +47,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           thresholdAll: 0.9
           thresholdNew: 0.9
+    
+    - name: Integration tests
+      run: |
+        pytest tests/integration

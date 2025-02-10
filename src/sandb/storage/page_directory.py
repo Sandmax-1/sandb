@@ -31,7 +31,7 @@ class PageDirectoryHeader:
     page_pointers: list[PagePointer]
 
     def to_bytes(self) -> bytes:
-        return pack(
+        byte_str = pack(
             f"<iiii{len(self.page_pointers) * 2}i",
             self.page_directory_id,
             self.free_space_start,
@@ -39,6 +39,8 @@ class PageDirectoryHeader:
             len(self.page_pointers),
             *chain(*self.page_pointers),
         )
+
+        return byte_str.ljust(self.directory_size, b"\0")
 
     @classmethod
     def from_bytes(cls, byte_str: bytes) -> "PageDirectoryHeader":
