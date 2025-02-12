@@ -7,6 +7,7 @@ from sandb.storage.constants import INT_SIZE_IN_BYTES
 from sandb.storage.record import SchemaRecord
 
 SLOT_SIZE = 3 * INT_SIZE_IN_BYTES
+SLOTTED_PAGE_HEADER_METADATA_SIZE = 4 * INT_SIZE_IN_BYTES
 
 
 @dataclass
@@ -93,7 +94,7 @@ class SlottedPageHeader:
             len_slots,
         ) = unpack_from("<iiii", byte_str, offset)
 
-        offset += INT_SIZE_IN_BYTES * 4
+        offset += SLOTTED_PAGE_HEADER_METADATA_SIZE
 
         slots_raw = unpack_from("<" + f"{len_slots * 3}i", byte_str, offset)
         offset += 3 * INT_SIZE_IN_BYTES * len_slots
