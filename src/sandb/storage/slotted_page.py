@@ -6,6 +6,8 @@ from typing import Iterable, Iterator
 from sandb.storage.constants import INT_SIZE_IN_BYTES
 from sandb.storage.record import SchemaRecord
 
+SLOT_SIZE = 3 * INT_SIZE_IN_BYTES
+
 
 @dataclass
 class Slot(Iterable[int]):
@@ -91,7 +93,7 @@ class SlottedPageHeader:
             len_slots,
         ) = unpack_from("<iiii", byte_str, offset)
 
-        offset += INT_SIZE_IN_BYTES * 4 - 1
+        offset += INT_SIZE_IN_BYTES * 4
 
         slots_raw = unpack_from("<" + f"{len_slots * 3}i", byte_str, offset)
         offset += 3 * INT_SIZE_IN_BYTES * len_slots
@@ -129,12 +131,11 @@ class SlottedPage:
         return SlottedPage(slotted_page_header, bytearray(byte_str), schema_record)
 
     def add_record(self, record: bytes) -> None:
-        # TODO: How do I make all this atomic?
         record_length = len(record)
 
         slot = Slot(
             record_id=self.header.next_row_id,
-            record_pointer=self.header.free_space_end + 1 - record_length,
+            record_pointer=self.header.free_space_end - record_length,
             record_length=record_length,
         )
         self.header.next_row_id += 1
@@ -142,20 +143,14 @@ class SlottedPage:
         self.header.slots.append(slot)
 
         self.byte_str[
-            self.header.free_space_start : self.header.free_space_start
-            + 3 * INT_SIZE_IN_BYTES  # noqa
-        ] = slot.to_bytes()
-
-        self.byte_str[
             self.header.free_space_end - record_length : self.header.free_space_end
         ] = record
 
-        self.byte_str[4:17] = bytearray(
-            pack(
-                "<iii",
-                self.header.free_space_start + 3 * INT_SIZE_IN_BYTES,
-                self.header.free_space_end - record_length,
-                len(self.header.slots),
-            )
-        )
+        self.header.free_space_start = self.header.free_space_start + SLOT_SIZE
+        self.header.free_space_end = self.header.free_space_end - record_length
+
+        serialised_header = self.header.to_bytes()
+
+        self.byte_str[: len(serialised_header)] = serialised_header
+
         self.is_dirty = True

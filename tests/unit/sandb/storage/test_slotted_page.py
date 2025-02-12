@@ -21,8 +21,8 @@ def test_slotted_page_add_record() -> None:
     header = SlottedPageHeader(
         page_id=0,
         free_space_start=28,
-        free_space_end=99,
-        slots=[Slot(record_id=0, record_pointer=100, record_length=4)],
+        free_space_end=101,
+        slots=[Slot(record_id=0, record_pointer=101, record_length=4)],
         next_row_id=1,
     )
 
@@ -45,6 +45,6 @@ def test_slotted_page_add_record() -> None:
     updated_slotted_page = SlottedPage.from_bytes(bytes(slotted_page.byte_str))
 
     assert updated_slotted_page.header.free_space_start == 40
-    assert updated_slotted_page.header.free_space_end == 92
-    assert updated_slotted_page.header.slots[1] == Slot(1, 93, 7)
+    assert updated_slotted_page.header.free_space_end == 94
+    assert updated_slotted_page.header.slots[1] == Slot(1, 94, 7)
     assert updated_slotted_page.schema_record == schema_record
