@@ -10,4 +10,4 @@ def test_to_bytes() -> None:
         file_path.touch()
         page = PageDirectoryHeader(1, 2, 3, [PagePointer(1, 2), PagePointer(3, 4)])
 
-        assert PageDirectoryHeader.from_bytes(page.to_bytes()) == page
+        assert PageDirectoryHeader.from_bytes(bytes(page)) == page

@@ -64,7 +64,7 @@ class Database:
             page_directory_size,
         )
 
-    def to_bytes(self) -> bytes:
+    def __bytes__(self) -> bytes:
         """
         Serializes the Database instance into a byte string.
 

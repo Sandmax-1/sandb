@@ -19,7 +19,7 @@ def test_slotted_page_header_serialisation() -> None:
     )
 
     assert slotted_page_header == SlottedPageHeader.from_bytes(
-        slotted_page_header.to_bytes()
+        bytes(slotted_page_header)
     )
 
 
@@ -28,7 +28,7 @@ def test_slotted_page_add_record() -> None:
     schema_record = SchemaRecord(
         0, "table_1", dtypes=[1, 0], col_names=["str_col", "int_col"]
     )
-    schema_record_bytes = schema_record.to_bytes()
+    schema_record_bytes = bytes(schema_record)
     free_space_end = page_size - len(schema_record_bytes)
 
     header = SlottedPageHeader(
@@ -48,8 +48,7 @@ def test_slotted_page_add_record() -> None:
     slotted_page = SlottedPage(
         header=header,
         byte_str=bytearray(
-            header.to_bytes().ljust((free_space_end), b"\0")
-            + schema_record_bytes  # noqa
+            bytes(header).ljust((free_space_end), b"\0") + schema_record_bytes  # noqa
         ),
         schema_record=schema_record,
         size=page_size,

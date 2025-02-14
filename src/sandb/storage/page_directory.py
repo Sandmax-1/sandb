@@ -48,7 +48,7 @@ class PageDirectoryHeader:
     directory_size: int
     page_pointers: list[PagePointer]
 
-    def to_bytes(self) -> bytes:
+    def __bytes__(self) -> bytes:
         """
         Serializes the PageDirectoryHeader into a byte string.
 
