@@ -4,7 +4,6 @@ from struct import pack, unpack_from
 from typing import Iterable, Iterator
 
 from sandb.storage.constants import INT_SIZE_IN_BYTES
-from sandb.storage.record import SchemaRecord
 
 SLOT_SIZE = 3 * INT_SIZE_IN_BYTES
 SLOTTED_PAGE_HEADER_METADATA_SIZE = 4 * INT_SIZE_IN_BYTES
@@ -14,6 +13,14 @@ class PageFullException(Exception):
     """
     Exception to raise if we don't have enough space
     to add a record to the slotted page.
+    """
+
+    ...
+
+
+class RecordNotInPage(Exception):
+    """
+    Exception to raise when a record id is not found in a given page
     """
 
     ...
@@ -157,8 +164,11 @@ class SlottedPage:
 
     header: SlottedPageHeader
     byte_str: bytearray
-    schema_record: SchemaRecord
     size: int = 4096
+
+    def _update_byte_str_with_header(self) -> None:
+        serialised_header = bytes(self.header)
+        self.byte_str[: len(serialised_header)] = serialised_header
 
     @classmethod
     def from_bytes(cls, byte_str: bytes) -> "SlottedPage":
@@ -176,13 +186,10 @@ class SlottedPage:
             SlottedPage: A SlottedPage object deserialized from the byte string.
         """
         slotted_page_header = SlottedPageHeader.from_bytes(byte_str)
-        schema_offset = slotted_page_header.slots[0].record_pointer
 
-        schema_record = SchemaRecord.from_bytes(byte_str[schema_offset:])
+        return SlottedPage(slotted_page_header, bytearray(byte_str))
 
-        return SlottedPage(slotted_page_header, bytearray(byte_str), schema_record)
-
-    def add_record(self, record: bytes) -> None:
+    def add_record(self, record: bytes) -> int:
         """
         Adds a new record to the slotted page.
 
@@ -207,8 +214,10 @@ class SlottedPage:
                     {required_space} in length."""
             )
 
+        record_id = self.header.next_row_id
+
         slot = Slot(
-            record_id=self.header.next_row_id,
+            record_id=record_id,
             record_pointer=self.header.free_space_end - record_length,
             record_length=record_length,
         )
@@ -222,10 +231,106 @@ class SlottedPage:
         record_end_offset = self.header.free_space_end
         self.byte_str[record_start_offset:record_end_offset] = record
 
-        # Update header metadata: move free space pointers, serialize and write header
-        self.header.free_space_start += SLOT_SIZE  # Slot directory grows forward
-        self.header.free_space_end -= record_length  # Record area grows backward
-        serialised_header = bytes(self.header)
-        self.byte_str[: len(serialised_header)] = serialised_header
+        self.header.free_space_start += SLOT_SIZE
+        self.header.free_space_end -= record_length
+
+        self._update_byte_str_with_header()
 
         self.is_dirty = True
+        return record_id
+
+    def delete(self, record_id: int) -> None:
+        """
+        Deletes a record from the slotted page by record ID.
+
+        This method logically deletes a record by invalidating its slot
+        (setting record_pointer to 0). The record data remains in the
+        byte array, but the space is not immediately reclaimed.
+
+        Args:
+            record_id (int): The ID of the record to delete.
+
+        Raises:
+            RecordNotInPage: If the record_id is not found in the page.
+
+        Side Effects:
+            - Modifies the slot directory in the SlottedPageHeader.
+            - Updates the SlottedPageHeader in the byte_str.
+            - Sets the is_dirty flag on the SlottedPageHeader.
+        """
+
+        have_modified = False
+        for slot in self.header.slots:
+            if slot.record_id == record_id:
+                slot.record_pointer = 0
+                have_modified = True
+                break
+
+        if have_modified:
+            self._update_byte_str_with_header()
+            self.header.is_dirty = True
+
+        else:
+            raise RecordNotInPage(
+                f"Could not find record: {record_id} in page: {self.header.page_id}"
+            )
+
+    def update(self, record_id: int, record: bytes) -> int:
+        """
+        Updates an existing record in the slotted page.
+
+        If the new record is smaller than or equal to the old record's size,
+        it performs an in-place update. If the new record is larger, it
+        attempts to relocate the record: adds the new record to available
+        space and marks the old record's slot as deleted.
+
+        Args:
+            record_id (int): The ID of the record to update.
+            record (bytes): The new byte data for the record.
+
+        Returns:
+            int: The record_id of the updated record. This will be the original
+                 record_id for in-place updates, or a new record_id if relocation
+                 was necessary.
+
+        Raises:
+            RecordNotInPage: If the record_id is not found in the page.
+            PageFullException: If relocation is needed but there is not enough
+                               space on the page to add the new, larger record.
+
+        Side Effects:
+            - Modifies the record data in byte_str (in-place or by relocation).
+            - Updates the slot directory in SlottedPageHeader (slot length or marks
+              slot as deleted during relocation).
+            - Updates free space pointers in SlottedPageHeader (during relocation).
+            - Updates the SlottedPageHeader in the byte_str.
+            - Sets the is_dirty flag on the SlottedPageHeader.
+        """
+        have_modified = False
+        new_record_length = len(record)
+        for slot in self.header.slots:
+            if slot.record_id == record_id:
+                have_modified = True
+                if new_record_length <= slot.record_length:
+                    self.byte_str[
+                        slot.record_pointer : slot.record_pointer + new_record_length
+                    ] = record
+                    slot.record_length = new_record_length
+                    self._update_byte_str_with_header()
+
+                else:
+                    try:
+                        new_record_id = self.add_record(record)
+                        self.delete(record_id)
+                        record_id = new_record_id
+                    except PageFullException:
+                        raise PageFullException(
+                            f"""Can't update record: {record_id} as
+                                not enough space in page"""
+                        )
+        if not have_modified:
+            raise RecordNotInPage(
+                f"Could not find record: {record_id} in page: {self.header.page_id}"
+            )
+        self.header.is_dirty = True
+        return record_id
