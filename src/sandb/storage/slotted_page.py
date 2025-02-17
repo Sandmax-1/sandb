@@ -76,8 +76,12 @@ class SlottedPageHeader:
     is_dirty: bool = False
     next_row_id: int = 0
     # checksum: int | None  # TODO implement this later
-    # TODO: Should I include all my records here once loaded into memory?
-    #       Or retrieve from disk using the pointers?
+
+    def __post_init__(self) -> None:
+        if self.slots:
+            self.next_row_id = max([slot.record_id for slot in self.slots]) + 1
+        else:
+            self.next_row_id = 0
 
     def __bytes__(self) -> bytes:
         """
