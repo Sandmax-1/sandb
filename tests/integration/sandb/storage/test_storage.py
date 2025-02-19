@@ -77,6 +77,7 @@ def test_database_with_page_directory_and_slotted_pages() -> None:
             loaded_slotted_page = SlottedPage.from_bytes(
                 f.read(database.page_size_bytes)
             )
+            loaded_slotted_page.is_dirty = True  # This is a bit naughty, but necessary
 
         assert database == loaded_database
         assert page_directory == loaded_page_directory

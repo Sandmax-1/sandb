@@ -1,8 +1,5 @@
-from struct import pack
-
 import pytest
 
-from sandb.storage.record import SchemaRecord
 from sandb.storage.slotted_page import (
     SLOT_SIZE,
     SLOTTED_PAGE_HEADER_METADATA_SIZE,
@@ -27,39 +24,145 @@ def test_slotted_page_header_serialisation() -> None:
     )
 
 
-def test_slotted_page_add_record(schema_record: SchemaRecord) -> None:
-    page_size = 150
-    schema_record_bytes = bytes(schema_record)
+def test_add_record_successful(slotted_page_empty: SlottedPage) -> None:
+    """Test successful addition of a record to the slotted page."""
+    slotted_page = slotted_page_empty
+    record_data = b"test_record_data"
+    record_id = slotted_page.add_record(record_data)
 
-    header = SlottedPageHeader(
-        page_id=0,
-        free_space_start=SLOTTED_PAGE_HEADER_METADATA_SIZE,
-        free_space_end=page_size,
-        slots=[],
-        next_row_id=0,
-    )
-
-    slotted_page = SlottedPage(
-        header=header,
-        byte_str=bytearray(bytes(header).ljust((page_size), b"\0")),
-        size=page_size,
-    )
-    slotted_page.add_record(bytes(schema_record))
-    record_to_add = pack("<3si", "abc".encode("utf-8"), 2)
-    slotted_page.add_record(record_to_add)
-
-    updated_slotted_page = SlottedPage.from_bytes(bytes(slotted_page.byte_str))
-
+    assert record_id == 0
+    assert len(slotted_page.header.slots) == 1
+    slot = slotted_page.header.slots[0]
+    assert slot.record_id == 0
+    assert slot.record_length == len(record_data)
+    assert slot.record_pointer == slotted_page.size - len(record_data)
     assert (
-        updated_slotted_page.header.free_space_start
-        == SLOTTED_PAGE_HEADER_METADATA_SIZE + 2 * SLOT_SIZE  # noqa
+        slotted_page.header.free_space_start
+        == SLOTTED_PAGE_HEADER_METADATA_SIZE + SLOT_SIZE
     )
-    assert updated_slotted_page.header.free_space_end == page_size - len(
-        schema_record_bytes
-    ) - len(record_to_add)
-    assert updated_slotted_page.header.slots[1] == Slot(
-        1, page_size - len(schema_record_bytes) - len(record_to_add), len(record_to_add)
+    assert slotted_page.header.free_space_end == slotted_page.size - len(record_data)
+    assert slotted_page.is_dirty is True
+    assert (
+        slotted_page.byte_str[
+            slot.record_pointer : slot.record_pointer + slot.record_length
+        ]
+        == record_data
     )
+
+
+def test_add_record_page_full(slotted_page_empty: SlottedPage) -> None:
+    """Test adding a record that exceeds the page's free space,
+    raising PageFullException."""
+    slotted_page = slotted_page_empty
+    page_size = slotted_page.size
+    header_size_with_initial_slot = SLOTTED_PAGE_HEADER_METADATA_SIZE + SLOT_SIZE
+
+    max_record_size = page_size - header_size_with_initial_slot
+    record_data = b"A" * max_record_size
+
+    slotted_page.add_record(record_data)
+
+    record_data_too_large = b"TOO_LARGE"
+    with pytest.raises(PageFullException):
+        slotted_page.add_record(record_data_too_large)
+
+
+def test_add_record_multiple_records(slotted_page_empty: SlottedPage) -> None:
+    """Test adding multiple records to the slotted page."""
+    slotted_page = slotted_page_empty
+    record_data1 = b"record_1"
+    record_data2 = b"record_longer_2"
+    record_data3 = b"record_3"
+
+    record_id1 = slotted_page.add_record(record_data1)
+    record_id2 = slotted_page.add_record(record_data2)
+    record_id3 = slotted_page.add_record(record_data3)
+
+    assert record_id1 == 0
+    assert record_id2 == 1
+    assert record_id3 == 2
+    assert len(slotted_page.header.slots) == 3
+
+    slot3 = slotted_page.header.slots[2]
+    assert slot3.record_id == 2
+    assert slot3.record_length == len(record_data3)
+    assert slot3.record_pointer == slotted_page.size - len(record_data1) - len(
+        record_data2
+    ) - len(record_data3)
+
+    # Check free space pointers
+    expected_free_space_start = SLOTTED_PAGE_HEADER_METADATA_SIZE + 3 * SLOT_SIZE
+    expected_free_space_end = (
+        slotted_page.size - len(record_data1) - len(record_data2) - len(record_data3)
+    )
+    assert slotted_page.header.free_space_start == expected_free_space_start
+    assert slotted_page.header.free_space_end == expected_free_space_end
+    assert slotted_page.is_dirty is True
+    assert (
+        slotted_page.byte_str[
+            slot3.record_pointer : slot3.record_pointer + slot3.record_length
+        ]
+        == record_data3
+    )
+    assert slotted_page.header.next_row_id == 3
+
+
+def test_add_record_zero_length_record(slotted_page_empty: SlottedPage) -> None:
+    """Test adding a zero-length record."""
+    slotted_page = slotted_page_empty
+    record_data = b""
+    record_id = slotted_page.add_record(record_data)
+
+    assert record_id == 0
+    assert len(slotted_page.header.slots) == 1
+    slot = slotted_page.header.slots[0]
+    assert slot.record_id == 0
+    assert slot.record_length == 0
+    assert slot.record_pointer == slotted_page.size
+    assert (
+        slotted_page.header.free_space_start
+        == SLOTTED_PAGE_HEADER_METADATA_SIZE + SLOT_SIZE
+    )
+    assert slotted_page.header.free_space_end == slotted_page.size
+    assert slotted_page.is_dirty is True
+
+
+def test_add_record_updates_header_bytes(slotted_page_empty: SlottedPage) -> None:
+    """Test that adding a record correctly updates the header bytes in byte_str."""
+    slotted_page = slotted_page_empty
+    initial_header_bytes = bytes(slotted_page.header)
+
+    record_data = b"test_record"
+    slotted_page.add_record(record_data)
+    updated_header_bytes = bytes(slotted_page.header)
+
+    assert updated_header_bytes != initial_header_bytes
+    deserialized_header = SlottedPageHeader.from_bytes(bytes(slotted_page.byte_str))
+    assert deserialized_header == slotted_page.header
+
+
+def test_add_record_exactly_fills_remaining_space(
+    slotted_page_empty: SlottedPage,
+) -> None:
+    """Test adding a record that exactly fills the remaining space on the page."""
+    slotted_page = slotted_page_empty
+    initial_free_space = (
+        slotted_page.header.free_space_end - slotted_page.header.free_space_start
+    )
+    record_size = initial_free_space - SLOT_SIZE
+
+    record_data = b"B" * record_size
+    record_id = slotted_page.add_record(record_data)
+
+    assert record_id == 0
+    assert len(slotted_page.header.slots) == 1
+    slot = slotted_page.header.slots[0]
+    assert slot.record_length == record_size
+    assert (
+        slotted_page.header.free_space_end
+        == SLOTTED_PAGE_HEADER_METADATA_SIZE + SLOT_SIZE
+    )
+    assert slotted_page.header.free_space_start == slotted_page.header.free_space_end
 
 
 def test_delete_record_successful(slotted_page: SlottedPage) -> None:
@@ -79,7 +182,7 @@ def test_delete_record_successful(slotted_page: SlottedPage) -> None:
     assert deleted_slot is not None
     assert deleted_slot.record_pointer == 0
 
-    assert slotted_page.header.is_dirty
+    assert slotted_page.is_dirty
 
 
 def test_delete_record_not_found(slotted_page: SlottedPage) -> None:
@@ -111,7 +214,7 @@ def test_update_record_in_place_smaller(slotted_page: SlottedPage) -> None:
         == new_record_data
     )
 
-    assert slotted_page.header.is_dirty
+    assert slotted_page.is_dirty
     assert updated_record_id == original_slot.record_id
 
 
@@ -139,7 +242,7 @@ def test_update_record_in_place_same_size(slotted_page: SlottedPage) -> None:
         == new_record_data
     )
 
-    assert slotted_page.header.is_dirty
+    assert slotted_page.is_dirty
     assert updated_record_id == record_id_to_update
 
 
@@ -179,7 +282,7 @@ def test_update_record_relocation_larger_fits(slotted_page: SlottedPage) -> None
     assert original_slot_deleted is not None
     assert original_slot_deleted.record_pointer == 0
 
-    assert slotted_page.header.is_dirty
+    assert slotted_page.is_dirty
     assert updated_record_id != record_id_to_update
 
 

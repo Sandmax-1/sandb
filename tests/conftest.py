@@ -74,3 +74,20 @@ def slotted_page(schema_record: SchemaRecord):
     slotted_page.add_record(record3)
 
     return slotted_page
+
+
+@pytest.fixture  # type: ignore
+def slotted_page_empty() -> SlottedPage:
+    """Fixture for an empty SlottedPage."""
+    page_size = 4096
+    header = SlottedPageHeader(
+        page_id=0,
+        free_space_start=SLOTTED_PAGE_HEADER_METADATA_SIZE,
+        free_space_end=page_size,
+        slots=[],
+    )
+    return SlottedPage(
+        header=header,
+        byte_str=bytearray(bytes(header).ljust((page_size), b"\0")),
+        size=page_size,
+    )

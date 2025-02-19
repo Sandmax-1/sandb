@@ -73,7 +73,6 @@ class SlottedPageHeader:
     free_space_start: int
     free_space_end: int
     slots: list[Slot]
-    is_dirty: bool = False
     next_row_id: int = 0
     # checksum: int | None  # TODO implement this later
 
@@ -169,6 +168,7 @@ class SlottedPage:
     header: SlottedPageHeader
     byte_str: bytearray
     size: int = 4096
+    is_dirty: bool = False
 
     def _update_byte_str_with_header(self) -> None:
         serialised_header = bytes(self.header)
@@ -272,7 +272,7 @@ class SlottedPage:
 
         if have_modified:
             self._update_byte_str_with_header()
-            self.header.is_dirty = True
+            self.is_dirty = True
 
         else:
             raise RecordNotInPage(
@@ -336,5 +336,5 @@ class SlottedPage:
             raise RecordNotInPage(
                 f"Could not find record: {record_id} in page: {self.header.page_id}"
             )
-        self.header.is_dirty = True
+        self.is_dirty = True
         return record_id
