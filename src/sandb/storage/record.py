@@ -34,7 +34,7 @@ class SchemaRecord:
     ]  # TODO: need to add dtype lengths in here as well i.e. VARCHAR(50)
     col_names: list[str]
 
-    def to_bytes(self) -> bytes:
+    def __bytes__(self) -> bytes:
         """
         Serializes the SchemaRecord instance into a bytes representation.
 

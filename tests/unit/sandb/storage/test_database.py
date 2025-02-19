@@ -13,7 +13,7 @@ def test_to_bytes() -> None:
         page_directory_size_bytes=100,
     )
 
-    encoded_database = database.to_bytes()
+    encoded_database = bytes(database)
 
     assert Database.from_bytes(encoded_database, Path("abc")) == database
 
@@ -33,7 +33,7 @@ def test_database_page_directory_cohesion() -> None:
         page = PageDirectoryHeader(1, 2, 3, [PagePointer(1, 2), PagePointer(3, 4)])
 
         with open(file_path, "wb") as f:
-            f.write(database.to_bytes())
-            f.write(page.to_bytes())
+            f.write(bytes(database))
+            f.write(bytes(page))
 
         assert database.page_directory == page
