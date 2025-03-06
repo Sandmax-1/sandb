@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import chain
 from struct import pack, unpack_from
 from typing import Iterable, Iterator
@@ -70,17 +70,15 @@ class SlottedPageHeader:
     """
 
     page_id: int
-    free_space_start: int
-    free_space_end: int
-    slots: list[Slot]
+    free_space_start: int = 0
+    free_space_end: int = 0
+    slots: list[Slot] = field(default_factory=list)
     next_row_id: int = 0
     # checksum: int | None  # TODO implement this later
 
     def __post_init__(self) -> None:
         if self.slots:
             self.next_row_id = max([slot.record_id for slot in self.slots]) + 1
-        else:
-            self.next_row_id = 0
 
     def __bytes__(self) -> bytes:
         """
@@ -153,7 +151,6 @@ class SlottedPageHeader:
         )
 
 
-@dataclass
 class SlottedPage:
     """
     Represents a slotted page, which is a unit of storage on
@@ -165,14 +162,39 @@ class SlottedPage:
     within the header.
     """
 
-    header: SlottedPageHeader
-    byte_str: bytearray
-    size: int = 4096
-    is_dirty: bool = False
+    def __init__(
+        self,
+        page_id: int,
+        header: SlottedPageHeader | None = None,
+        byte_str: bytearray | None = None,
+        size: int = 4096,
+    ) -> None:
+        self.page_id = page_id
+        self.size = size
+        self.is_dirty = False
+
+        if header:
+            self.header = header
+
+        else:
+            self.header = SlottedPageHeader(
+                page_id=self.page_id,
+                free_space_start=SLOTTED_PAGE_HEADER_METADATA_SIZE,
+                free_space_end=self.size,
+            )
+
+        if byte_str:
+            self.byte_str = byte_str
+
+        else:
+            self.byte_str = bytearray(bytes(self.header).ljust(self.size, b"\0"))
 
     def _update_byte_str_with_header(self) -> None:
         serialised_header = bytes(self.header)
         self.byte_str[: len(serialised_header)] = serialised_header
+
+    def __bytes__(self) -> bytes:
+        return bytes(self.byte_str)
 
     @classmethod
     def from_bytes(cls, byte_str: bytes) -> "SlottedPage":
@@ -191,7 +213,9 @@ class SlottedPage:
         """
         slotted_page_header = SlottedPageHeader.from_bytes(byte_str)
 
-        return SlottedPage(slotted_page_header, bytearray(byte_str))
+        return SlottedPage(
+            slotted_page_header.page_id, slotted_page_header, bytearray(byte_str)
+        )
 
     def add_record(self, record: bytes) -> int:
         """
@@ -310,11 +334,11 @@ class SlottedPage:
             - Updates the SlottedPageHeader in the byte_str.
             - Sets the is_dirty flag on the SlottedPageHeader.
         """
-        have_modified = False
+        record_in_page = False
         new_record_length = len(record)
         for slot in self.header.slots:
             if slot.record_id == record_id:
-                have_modified = True
+                record_in_page = True
                 if new_record_length <= slot.record_length:
                     self.byte_str[
                         slot.record_pointer : slot.record_pointer + new_record_length
@@ -332,7 +356,7 @@ class SlottedPage:
                             f"""Can't update record: {record_id} as
                                 not enough space in page"""
                         )
-        if not have_modified:
+        if not record_in_page:
             raise RecordNotInPage(
                 f"Could not find record: {record_id} in page: {self.header.page_id}"
             )
