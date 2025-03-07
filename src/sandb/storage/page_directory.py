@@ -182,34 +182,39 @@ class PageDirectory:
                 f.read(page_directory_size_bytes), file_path, page_directory_offset
             )
 
-    def create_page(
-        self, is_schema_page: bool = False
-    ) -> SlottedPage | TableSchemaPage:  # TODO: create a page protocol.
+    def create_record_page(self) -> SlottedPage:
         """
-        Creates a new page (either SlottedPage or TableSchemaPage).
+        Creates a new page
 
         This method instantiates a new page object, assigning it the next available
         page ID from the PageDirectory. The page is NOT immediately written to disk
         by this method. The caller is responsible for writing the page and updating
         the PageDirectory with the new page's location.
 
-        Args:
-            is_schema_page (bool, optional): If True, creates a TableSchemaPage;
-                                              otherwise, creates a SlottedPage. #
-                                              Defaults to False.
-
         Returns:
-            SlottedPage | TableSchemaPage: The newly created page object.
-                                             Returns TableSchemaPage if is_schema_page
-                                             is True, otherwise returns a SlottedPage.
+            SlottedPage: The newly created page object.
         """
 
+        page = SlottedPage(self.next_page_id)
         self.next_page_id += 1
+        return page
 
-        if is_schema_page:
-            return TableSchemaPage(SlottedPage(self.next_page_id))
-        else:
-            return SlottedPage(self.next_page_id)
+    def create_schema_page(self) -> TableSchemaPage:
+        """
+        Creates a new schema page
+
+        This method instantiates a new page object, assigning it the next available
+        page ID from the PageDirectory. The page is NOT immediately written to disk
+        by this method. The caller is responsible for writing the page and updating
+        the PageDirectory with the new page's location.
+
+        Returns:
+            TableSchemaPage: The newly created page object.
+        """
+
+        page = TableSchemaPage(SlottedPage(self.next_page_id))
+        self.next_page_id += 1
+        return page
 
     def read_page(self, page_id: int) -> SlottedPage:
         """
@@ -240,6 +245,9 @@ class PageDirectory:
 
         except StopIteration:
             raise PageNotInDirectory
+
+    def write_schema_page(self, schema_page: TableSchemaPage) -> None:
+        self.write_page(schema_page._page)
 
     def write_page(self, page: SlottedPage) -> None:
         """

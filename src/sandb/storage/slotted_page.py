@@ -164,12 +164,11 @@ class SlottedPage:
 
     def __init__(
         self,
-        page_id: int,
+        page_id: int | None = None,
         header: SlottedPageHeader | None = None,
         byte_str: bytearray | None = None,
         size: int = 4096,
     ) -> None:
-        self.page_id = page_id
         self.size = size
         self.is_dirty = False
 
@@ -177,8 +176,13 @@ class SlottedPage:
             self.header = header
 
         else:
+            if not page_id:
+                raise Exception(
+                    """Cannot create a slotted_page without supplying either a header,
+                    or a page_id"""
+                )
             self.header = SlottedPageHeader(
-                page_id=self.page_id,
+                page_id=page_id,
                 free_space_start=SLOTTED_PAGE_HEADER_METADATA_SIZE,
                 free_space_end=self.size,
             )
@@ -188,6 +192,10 @@ class SlottedPage:
 
         else:
             self.byte_str = bytearray(bytes(self.header).ljust(self.size, b"\0"))
+
+    @property
+    def page_id(self) -> int:
+        return self.header.page_id
 
     def _update_byte_str_with_header(self) -> None:
         serialised_header = bytes(self.header)
@@ -362,3 +370,44 @@ class SlottedPage:
             )
         self.is_dirty = True
         return record_id
+
+    def get_record(self, record_id: int) -> bytes:
+        """
+        Retrieves a record from the slotted page by record ID.
+
+        This method searches the slot directory for a slot matching the given
+        record ID. If found and the slot is valid (record_pointer is not 0),
+        it extracts the record data from the page's byte array using the
+        record's pointer and length from the slot.
+
+        Args:
+            record_id (int): The ID of the record to retrieve.
+
+        Returns:
+            bytes: The byte data of the retrieved record.
+
+        Raises:
+            RecordNotInPage: If the record_id is not found in the page, or
+                            if the slot is found but marked as deleted
+                            (record_pointer is 0).
+        """
+
+        try:
+            slot = next(
+                slot for slot in self.header.slots if slot.record_id == record_id
+            )
+            if slot.record_pointer == 0:
+                raise RecordNotInPage(
+                    f"""Record ID {record_id} exists in page {self.header.page_id} but
+is marked as deleted."""
+                )
+            return bytes(
+                self.byte_str[
+                    slot.record_pointer : slot.record_pointer + slot.record_length
+                ]
+            )
+
+        except StopIteration:
+            raise RecordNotInPage(
+                f"Record ID {record_id} not found in page {self.header.page_id}."
+            )
