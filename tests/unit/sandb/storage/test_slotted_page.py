@@ -342,8 +342,8 @@ def test_get_record_deleted_record(slotted_page_empty: SlottedPage) -> None:
         page.get_record(record_id)
     assert (
         str(exc_info.value)
-        == f"""Record ID {record_id} exists in page {page.page_id} but is marked as
- deleted."""
+        == f"""Record ID {record_id} exists in page {page.page_id} but
+is marked as deleted."""
     )
 
 
