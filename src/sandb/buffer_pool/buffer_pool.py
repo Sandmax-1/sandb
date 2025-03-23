@@ -10,7 +10,6 @@ from sandb.storage.slotted_page import SlottedPage
 class BufferPageMetadata:
     frame_index: int
     pin: Lock
-    last_accessed: datetime
 
 
 @dataclass
@@ -23,6 +22,9 @@ class PageTable:
 @dataclass
 class BufferPool:
     frames: list[SlottedPage] = field(default_factory=list)
+    
+    def __len__(self) -> int:
+        return len(self.frames)
 
 
 class BufferPoolManager:
@@ -31,6 +33,9 @@ class BufferPoolManager:
         self.buffer_pool = BufferPool()
         self.buffer_pool_size = buffer_pool_size
         self.page_directory = page_directory
+        
+    def is_full(self) -> bool:
+        return len(self.buffer_pool) == self.buffer_pool_size 
 
     def get_page(self, page_id: int) -> SlottedPage | None:
         buffer_page_metadata = self.page_table.buffer_pool_page_mapping.get(
@@ -39,7 +44,6 @@ class BufferPoolManager:
 
         if buffer_page_metadata:
             buffer_page_metadata.pin.acquire()
-            buffer_page_metadata.last_accessed = datetime.now()
             self.page_table.buffer_pool_page_mapping[page_id] = buffer_page_metadata
             page = self.buffer_pool.frames[buffer_page_metadata.frame_index]
             return page
