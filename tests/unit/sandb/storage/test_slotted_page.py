@@ -308,3 +308,84 @@ def test_update_record_not_found(slotted_page: SlottedPage) -> None:
     new_record_data = b"new_data"
     with pytest.raises(RecordNotInPage):
         slotted_page.update(record_id_to_update, new_record_data)
+
+
+def test_get_record_successful(slotted_page_empty: SlottedPage) -> None:
+    page = slotted_page_empty
+    record_data = "test record data".encode("utf-8")
+    record_id = page.add_record(record_data)
+
+    retrieved_record = page.get_record(record_id)
+
+    assert retrieved_record == record_data
+
+
+def test_get_record_non_existent_record_id(slotted_page_empty: SlottedPage) -> None:
+    page = slotted_page_empty
+    non_existent_record_id = 999
+
+    with pytest.raises(RecordNotInPage) as exc_info:
+        page.get_record(non_existent_record_id)
+    assert (
+        str(exc_info.value)
+        == f"Record ID {non_existent_record_id} not found in page {page.page_id}."
+    )
+
+
+def test_get_record_deleted_record(slotted_page_empty: SlottedPage) -> None:
+    page = slotted_page_empty
+    record_data = b"record to be deleted"
+    record_id = page.add_record(record_data)
+    page.delete(record_id)
+
+    with pytest.raises(RecordNotInPage) as exc_info:
+        page.get_record(record_id)
+    assert (
+        str(exc_info.value)
+        == f"""Record ID {record_id} exists in page {page.page_id} but
+is marked as deleted."""
+    )
+
+
+def test_get_record_multiple_records(slotted_page_empty: SlottedPage) -> None:
+    """Test get_record works correctly with multiple records in the page."""
+    page = slotted_page_empty
+    record_data_1 = "first record".encode("utf-8")
+    record_data_2 = "second record".encode("utf-8")
+    record_id_1 = page.add_record(record_data_1)
+    record_id_2 = page.add_record(record_data_2)
+
+    retrieved_record_1 = page.get_record(record_id_1)
+    retrieved_record_2 = page.get_record(record_id_2)
+
+    assert retrieved_record_1 == record_data_1
+    assert retrieved_record_2 == record_data_2
+
+
+def test_get_record_after_update_smaller_record(
+    slotted_page_empty: SlottedPage,
+) -> None:
+    page = slotted_page_empty
+    initial_record_data = "initial record data".encode("utf-8")
+    updated_record_data = "updated".encode("utf-8")
+    record_id = page.add_record(initial_record_data)
+    page.update(record_id, updated_record_data)
+
+    retrieved_record = page.get_record(record_id)
+    assert retrieved_record == updated_record_data
+
+
+def test_get_record_after_update_larger_record(slotted_page_empty: SlottedPage) -> None:
+    page = slotted_page_empty
+    initial_record_data = "small record".encode("utf-8")
+    updated_record_data = (
+        "a much larger record for update that causes relocation".encode("utf-8")
+    )
+    record_id = page.add_record(initial_record_data)
+    updated_record_id = page.update(record_id, updated_record_data)
+
+    retrieved_record = page.get_record(updated_record_id)
+    assert retrieved_record == updated_record_data
+
+    with pytest.raises(RecordNotInPage):
+        page.get_record(record_id)
